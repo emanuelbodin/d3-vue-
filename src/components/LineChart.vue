@@ -1,5 +1,36 @@
 <template>
   <div v-if="dataset != null" class="chart" id="lineChart">
+    <div class="legend-container">
+      <div v-for="data in dataset" :key="data.id">
+        <label>{{ data.name }}</label>
+        <input
+          type="checkbox"
+          :id="data.id"
+          :name="data.name"
+          :checked="data.visible"
+          @change="$emit('toggle', data.id)"
+        />
+      </div>
+    </div>
+    <svg id="svg" :height="dimensions.height" :width="dimensions.width">
+      <g
+        id="ctr"
+        :transform="
+          `translate(${this.dimensions.margins}, ${this.dimensions.margins})`
+        "
+      >
+        <g id="tooltipDots"></g>
+        <g id="lineGroup"></g>
+        <g id="axisGroupY"></g>
+        <g id="axisGroupX"></g>
+        <rect
+          id="tooltipBisector"
+          :width="ctrWidth"
+          :height="ctrHeight"
+          style="opacity: 0;"
+        ></rect>
+      </g>
+    </svg>
     <div class="tooltip" id="lineChartTooltip">
       <div class="data"></div>
       <div class="date"></div>
@@ -21,7 +52,7 @@ export default {
     return {
       data: null,
       tooltipPosition: { top: 10, right: 50 },
-      dimensions: { width: 1000, height: 500, margins: 50, padding: 10 },
+      dimensions: { width: 600, height: 300, margins: 50, padding: 10 },
     };
   },
   computed: {
@@ -77,40 +108,20 @@ export default {
     yAccessor(d) {
       return parseInt(d.y);
     },
-    drawContainer() {
-      const svg = d3
-        .select('#lineChart')
-        .append('svg')
-        .attr('width', this.dimensions.width)
-        .attr('height', this.dimensions.height);
-
-      const ctr = svg
-        .append('g')
-        .attr(
-          'transform',
-          `translate(${this.dimensions.margins}, ${this.dimensions.margins})`
-        );
-      return ctr;
-    },
-    drawAxis(ctr) {
-      ctr
-        .append('g')
+    drawAxis() {
+      d3.select('#axisGroupY')
         .classed('noStroke', true)
         .classed('axis', true)
         .classed('axis-grid', true)
         .call(this.yAxis);
-      ctr
-        .append('g')
+      d3.select('#axisGroupX')
         .style('transform', `translateY(${this.ctrHeight}px`)
         .classed('noStroke', true)
         .call(this.xAxis);
     },
-    drawTooltipBisector(ctr, tooltip, tooltipDots, that) {
-      ctr
-        .append('rect')
-        .attr('width', this.ctrWidth)
-        .attr('height', this.ctrHeight)
-        .style('opacity', 0)
+    drawTooltipBisector(that) {
+      const tooltip = d3.select('#lineChartTooltip');
+      d3.select('#tooltipBisector')
         .on('touchmouse mousemove', function(event) {
           const mousePos = d3.pointer(event, this);
           const date = that.xScale.invert(mousePos[0]);
@@ -123,13 +134,13 @@ export default {
           });
           if (points.findIndex((el) => el == null) !== -1) return;
           // Update Image
-          tooltipDots.forEach((dot, dotIndex) => {
-            dot
-              .style('opacity', 1)
-              .attr('cx', that.xScale(that.xAccessor(points[dotIndex])))
-              .attr('cy', that.yScale(that.yAccessor(points[dotIndex])))
-              .raise();
-          });
+          d3.select('#tooltipDots')
+            .selectAll('circle')
+            .data(points)
+            .style('opacity', 1)
+            .attr('cx', (d) => that.xScale(that.xAccessor(d)))
+            .attr('cy', (d) => that.yScale(that.yAccessor(d)))
+            .raise();
           const text = points.map((el) => el.y);
           tooltip
             .style('display', 'block')
@@ -142,65 +153,65 @@ export default {
         })
         // eslint-disable-next-line no-unused-vars
         .on('mouseleave', function(event) {
-          tooltipDots.forEach((dot) => {
-            dot.style('opacity', 0);
-          });
+          d3.select('#tooltipDots')
+            .selectAll('circle')
+            .style('opacity', 0);
           tooltip.style('display', 'none');
         });
     },
-    createToolTipDots(ctr, data) {
-      const dots = [];
-      data.forEach((el) => {
-        const dot = ctr
-          .append('circle')
-          .attr('r', 5)
-          .attr('fill', el.color)
-          .attr('stroke', 'black')
-          .attr('stroke-width', 2)
-          .style('opacity', 0)
-          .style('pointer-events', 'none');
-        dots.push(dot);
-      });
-      return dots;
+    createToolTipDots() {
+      d3.select('#tooltipDots')
+        .selectAll('circle')
+        .data(this.dataset)
+        .join((enter) => enter.append('circle'))
+        .attr('r', 5)
+        .attr('fill', (d) => d.color)
+        .attr('stroke', 'black')
+        .attr('stroke-width', 2)
+        .style('opacity', 0)
+        .style('pointer-events', 'none');
+    },
+    drawLine() {
+      d3.select('#lineGroup')
+        .selectAll('path')
+        .data(this.dataset)
+        .join((enter) => enter.append('path'))
+        .transition()
+        .duration(500)
+        .attr('d', (d) => this.lineGenerator(d.values))
+        .attr('id', (d) => 'line' + d.id)
+        .attr('fill', 'none')
+        .attr('stroke', (d) => d.color)
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', (d) => (d.dotted ? '5,5' : null))
+        .style('opacity', (d) => (d.visible ? 1 : 0));
     },
     draw() {
-      const ctr = this.drawContainer();
-      const tooltip = d3.select('#lineChartTooltip');
-      const tooltipDots = this.createToolTipDots(ctr, this.dataset);
-      this.dataset.forEach((dataset) => {
-        const line = ctr
-          .append('path')
-          .data([dataset.values])
-          .attr('d', this.lineGenerator)
-          .attr('fill', 'none')
-          .attr('stroke', dataset.color)
-          .attr('stroke-width', 2);
-
-        if (dataset.dotted) line.attr('stroke-dasharray', '5,5');
-      });
-      this.drawAxis(ctr);
-
-      // tooltip
-      this.drawTooltipBisector(ctr, tooltip, tooltipDots, this);
+      this.createToolTipDots();
+      this.drawLine();
+      this.drawAxis();
+      this.drawTooltipBisector(this);
     },
   },
   watch: {
-    dataset() {
-      this.draw();
+    dataset: {
+      deep: true,
+      handler() {
+        this.draw();
+      },
     },
   },
 };
 </script>
 
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@600&display=swap');
-
-* {
-  font-family: 'Raleway', sans-serif;
+<style scoped>
+.legend-container {
+  display: flex;
+  justify-content: space-around;
 }
 .chart {
+  height: 350px;
   margin: 25px auto;
-  width: 1000px;
   position: relative;
   background-color: #efefef;
 }
