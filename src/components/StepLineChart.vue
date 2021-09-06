@@ -1,5 +1,5 @@
 <template>
-  <div v-if="dataset != null" class="chart" id="lineChart">
+  <div class="chart" :id="id">
     <div class="legend-container">
       <div v-for="data in dataset" :key="data.id">
         <label>{{ data.name }}</label>
@@ -12,26 +12,26 @@
         />
       </div>
     </div>
-    <svg id="svg" :height="dimensions.height" :width="dimensions.width">
+    <svg :height="dimensions.height" :width="dimensions.width">
       <g
         id="ctr"
         :transform="
           `translate(${this.dimensions.margins}, ${this.dimensions.margins})`
         "
       >
-        <g id="tooltipDots"></g>
-        <g id="lineGroup"></g>
-        <g id="axisGroupY"></g>
-        <g id="axisGroupX"></g>
+        <g :id="`tooltipDotsStepLineChart_${id}`"></g>
+        <g :id="`lineGroupStepLineChart_${id}`"></g>
+        <g :id="`axisGroupYStepLineChart_${id}`"></g>
+        <g :id="`axisGroupXStepLineChart_${id}`"></g>
         <rect
-          id="tooltipBisector"
+          :id="`tooltipBisectorStepLineChart_${id}`"
           :width="ctrWidth"
           :height="ctrHeight"
           style="opacity: 0;"
         ></rect>
       </g>
     </svg>
-    <div class="tooltip" id="lineChartTooltip">
+    <div class="tooltip" :id="`tooltipStepLineChart_${id}`">
       <div class="data"></div>
       <div class="date"></div>
     </div>
@@ -41,11 +41,15 @@
 <script>
 import * as d3 from 'd3';
 export default {
-  name: 'LineChart',
+  name: 'StepLineChart',
   props: {
     dataset: {
       type: Array,
       required: false,
+    },
+    id: {
+      type: String,
+      required: true,
     },
   },
   data() {
@@ -109,18 +113,18 @@ export default {
       return parseInt(d.y);
     },
     drawAxis() {
-      d3.select('#axisGroupY')
+      d3.select(`#axisGroupYStepLineChart_${this.id}`)
         .call(this.yAxis)
         .call((g) => g.select('.domain').remove());
-      d3.select('#axisGroupX')
+      d3.select(`#axisGroupXStepLineChart_${this.id}`)
         .style('transform', `translateY(${this.ctrHeight}px`)
         .call(this.xAxis)
         .call((g) => g.select('.domain').remove())
         .call((g) => g.selectAll('line').remove());
     },
     drawTooltipBisector(that) {
-      const tooltip = d3.select('#lineChartTooltip');
-      d3.select('#tooltipBisector')
+      const tooltip = d3.select(`#tooltipStepLineChart_${this.id}`);
+      d3.select(`#tooltipBisectorStepLineChart_${this.id}`)
         .on('touchmouse mousemove', function(event) {
           const mousePos = d3.pointer(event, this);
           const date = that.xScale.invert(mousePos[0]);
@@ -133,7 +137,7 @@ export default {
           });
           if (points.findIndex((el) => el == null) !== -1) return;
           // Update Image
-          d3.select('#tooltipDots')
+          d3.select(`#tooltipDotsStepLineChart_${that.id}`)
             .selectAll('circle')
             .data(points)
             .style('opacity', 1)
@@ -152,14 +156,14 @@ export default {
         })
         // eslint-disable-next-line no-unused-vars
         .on('mouseleave', function(event) {
-          d3.select('#tooltipDots')
+          d3.select(`#tooltipDotsStepLineChart_${that.id}`)
             .selectAll('circle')
             .style('opacity', 0);
           tooltip.style('display', 'none');
         });
     },
     createToolTipDots() {
-      d3.select('#tooltipDots')
+      d3.select(`#tooltipDotsStepLineChart_${this.id}`)
         .selectAll('circle')
         .data(this.dataset)
         .join((enter) => enter.append('circle'))
@@ -171,7 +175,7 @@ export default {
         .style('pointer-events', 'none');
     },
     drawLine() {
-      d3.select('#lineGroup')
+      d3.select(`#lineGroupStepLineChart_${this.id}`)
         .selectAll('path')
         .data(this.dataset)
         .join((enter) => enter.append('path'))

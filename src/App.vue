@@ -12,20 +12,31 @@
         <BarChart :id="'bar1'" :dataset="barData" />
       </div>
     </div>
+    <div class="row">
+      <div class="col">
+        <HorizontalBarChart :id="'bar1'" :dataset="horizontalBarData" />
+      </div>
+      <div class="col">
+        <StepLineChart :id="'step1'" :dataset="lineData" />
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import LineChart from './components/LineChart.vue';
 import BarChart from './components/BarChart.vue';
+import HorizontalBarChart from './components/HorizontalBarChart.vue';
+import StepLineChart from './components/StepLineChart.vue';
 import * as d3 from 'd3';
 export default {
   name: 'App',
-  components: { LineChart, BarChart },
+  components: { LineChart, BarChart, HorizontalBarChart, StepLineChart },
   data() {
     return {
       lineData: [],
       barData: {},
+      horizontalBarData: {},
     };
   },
   methods: {
@@ -41,12 +52,14 @@ export default {
       const maxUsage = {};
       const maxBookings = {};
       const barData = {};
+      const horizontalBarData = {};
       if (num === 1) {
         usage.values = await d3.csv('datasets/v1/usage.csv');
         bookings.values = await d3.csv('datasets/v1/booking.csv');
         maxUsage.values = await d3.csv('datasets/v1/maxUsage.csv');
         maxBookings.values = await d3.csv('datasets/v1/maxBooking.csv');
         barData.values = await d3.csv('datasets/v1/bookedAndUsed.csv');
+        horizontalBarData.values = await d3.csv('datasets/v1/roomData.csv');
       }
       if (num === 2) {
         usage.values = await d3.csv('datasets/v2/usage.csv');
@@ -54,6 +67,7 @@ export default {
         maxUsage.values = await d3.csv('datasets/v2/maxUsage.csv');
         maxBookings.values = await d3.csv('datasets/v2/maxBooking.csv');
         barData.values = await d3.csv('datasets/v2/bookedAndUsed.csv');
+        horizontalBarData.values = await d3.csv('datasets/v2/roomData.csv');
       }
       usage.color = '#D1A617';
       maxUsage.color = '#D1A617';
@@ -65,17 +79,28 @@ export default {
         usedAndBooked: '#A5965F',
         notUsedNotBooked: '#B8B2B2',
       };
-
+      horizontalBarData.names = {
+        used: 'Användning',
+        booked: 'Bokning',
+        usedAndBooked: 'Användning och bokning',
+        notUsedNotBooked: 'Inte använd inte bokad',
+      };
+      horizontalBarData.colors = {
+        used: '#D1A617',
+        booked: '#5A657D',
+        usedAndBooked: '#A5965F',
+        notUsedNotBooked: '#B8B2B2',
+      };
+      barData.names = {
+        used: 'Användning',
+        booked: 'Bokning',
+        usedAndBooked: 'Användning och bokning',
+        notUsedNotBooked: 'Inte använd inte bokad',
+      };
       usage.name = 'Usage';
       maxUsage.name = 'Max usage';
       bookings.name = 'Bookings';
       maxBookings.name = 'Max bookings';
-      barData.names = [
-        'Used',
-        'Booked',
-        'Booked and used',
-        'Not booked not used',
-      ];
       usage.id = 0;
       maxUsage.id = 1;
       bookings.id = 2;
@@ -93,7 +118,14 @@ export default {
         el.usedAndBooked = parseInt(el.usedAndBooked);
         el.notUsedNotBooked = parseInt(el.notUsedNotBooked);
       });
+      horizontalBarData.values.forEach((el) => {
+        el.used = parseInt(el.used);
+        el.booked = parseInt(el.booked);
+        el.usedAndBooked = parseInt(el.usedAndBooked);
+        el.notUsedNotBooked = parseInt(el.notUsedNotBooked);
+      });
       this.barData = barData;
+      this.horizontalBarData = horizontalBarData;
     },
   },
   async mounted() {
@@ -110,13 +142,17 @@ export default {
   display: border-box;
 }
 .row {
-  width: 100%;
   display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  width: 100%;
   justify-content: center;
 }
 .col {
-  width: 40%;
-  margin: 10px;
+  display: flex;
+  flex-direction: column;
+  flex-basis: 100%;
+  flex: 1;
 }
 .btn {
   cursor: pointer;

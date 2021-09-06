@@ -1,17 +1,25 @@
 <template>
   <div v-if="dataset != null" class="chart">
-    <svg :height="dimensions.height" :width="dimensions.width">
+    <svg :height="50" :width="dimensions.width">
       <g
-        :transform="
-          `translate(${this.dimensions.margins}, ${this.dimensions.margins})`
-        "
-      >
-        <g :id="`barGroup_${id}`"></g>
-        <g :id="`axisGroupY_${id}`"></g>
-        <g :id="`axisGroupX_${id}`"></g>
-      </g>
+        :id="`horizontalBarAxisGroupX_${id}`"
+        :transform="`translate(${this.dimensions.margins}, ${30})`"
+      ></g>
     </svg>
-    <div class="tooltip" :id="`tooltip_${id}`">
+    <div class="scroll-container">
+      <svg :height="svgHeight" :width="dimensions.width">
+        <g
+          :transform="
+            `translate(${this.dimensions.margins}, ${this.dimensions.margins})`
+          "
+        >
+          <g :id="`horizontalBarGroup_${id}`"></g>
+          <g :id="`horizontalBarAxisGroupY_${id}`"></g>
+        </g>
+      </svg>
+    </div>
+
+    <div class="tooltip" :id="`horizontalBarTooltip_${id}`">
       <div class="data"></div>
       <div class="date"></div>
     </div>
@@ -21,7 +29,7 @@
 <script>
 import * as d3 from 'd3';
 export default {
-  name: 'BarChart',
+  name: 'HorizontalBarChart',
   props: {
     dataset: {
       type: Object,
@@ -38,11 +46,15 @@ export default {
     };
   },
   computed: {
+    svgHeight() {
+      if (this.dataset.values == null) return 0;
+      return this.dataset.values.length * 40 - this.dimensions.margins * 2;
+    },
     ctrWidth() {
       return this.dimensions.width - this.dimensions.margins * 2;
     },
     ctrHeight() {
-      return this.dimensions.height - this.dimensions.margins * 2;
+      return this.svgHeight - this.dimensions.margins * 2;
     },
     stackGenerator() {
       return d3.stack().keys(this.dataset.values.columns.slice(1));
@@ -57,13 +69,6 @@ export default {
     },
     xScale() {
       return d3
-        .scaleBand()
-        .domain(this.dataset.values.map((d) => this.xAccessor(d)))
-        .range([0, this.ctrWidth])
-        .padding(0.1);
-    },
-    yScale() {
-      return d3
         .scaleLinear()
         .domain([
           0,
@@ -71,42 +76,43 @@ export default {
             return d3.max(dataGroup, (state) => state[1]);
           }),
         ])
-        .range([this.ctrHeight, 0])
-        .nice();
+        .range([0, this.ctrWidth]);
     },
-    colorScale() {
+    yScale() {
       return d3
-        .scaleOrdinal()
-        .domain(this.stackData.map((d) => d.key))
-        .range(d3.schemeSpectral[this.stackData.length])
-        .unknown('#ccc');
+        .scaleBand()
+        .domain(this.dataset.values.map((d) => this.xAccessor(d)))
+        .range([0, this.ctrHeight])
+        .padding(0.1);
     },
     yAxis() {
-      return d3
-        .axisLeft(this.yScale)
-        .tickFormat((d) => d + '%')
-        .tickValues([0, 50, 100]);
+      return d3.axisLeft(this.yScale);
     },
     xAxis() {
-      return d3.axisBottom(this.xScale).tickFormat(d3.timeFormat('%a'));
+      return d3
+        .axisBottom(this.xScale)
+        .tickFormat((d) => d + '%')
+        .tickValues([0, 50, 100]);
     },
   },
   methods: {
     xAccessor(d) {
-      const parseDate = d3.timeParse('%Y-%m-%d');
-      return parseDate(d.date);
+      return d.room;
     },
     yAccessor(d) {
       return parseInt(d.y);
     },
     drawAxis() {
-      d3.select(`#axisGroupY_${this.id}`)
+      d3.select(`#horizontalBarAxisGroupY_${this.id}`)
+        .classed('noStroke', true)
         .classed('axis', true)
         .classed('axis-grid', true)
         .call(this.yAxis)
-        .call((g) => g.select('.domain').remove());
-      d3.select(`#axisGroupX_${this.id}`)
-        .style('transform', `translateY(${this.ctrHeight}px`)
+        .call((g) => g.select('.domain').remove())
+        .call((g) => g.selectAll('line').remove());
+      d3.select(`#horizontalBarAxisGroupX_${this.id}`)
+        .classed('noStroke', true)
+        .style('position', 'fixed')
         .call(this.xAxis)
         .call((g) => g.select('.domain').remove())
         .call((g) => g.selectAll('line').remove());
@@ -114,7 +120,7 @@ export default {
     drawBars() {
       const that = this;
       const barGroups = d3
-        .select(`#barGroup_${this.id}`)
+        .select(`#horizontalBarGroup_${this.id}`)
         .selectAll('g')
         .data(this.stackData)
         .join('g');
@@ -122,15 +128,15 @@ export default {
         .selectAll('rect')
         .data((d) => d)
         .join('rect')
-        .attr('x', (d) => this.xScale(this.xAccessor(d.data)))
-        .attr('y', (d) => this.yScale(d[1]))
-        .attr('width', this.xScale.bandwidth())
-        .attr('height', (d) => this.yScale(d[0]) - this.yScale(d[1]))
+        .attr('x', (d) => this.xScale(d[0]))
+        .attr('y', (d) => this.yScale(d.data.room))
+        .attr('width', (d) => this.xScale(d[1]) - this.xScale(d[0]))
+        .attr('height', this.yScale.bandwidth())
         .attr('fill', (d) => this.dataset.colors[d.key])
         .on('mouseover', function(event, d) {
           const name = that.dataset.names[d.key];
           const value = d.data[d.key];
-          const tooltip = d3.select(`#tooltip_${that.id}`);
+          const tooltip = d3.select(`#horizontalBarTooltip_${that.id}`);
           const mousePos = d3.pointer(event, this);
           tooltip
             .style('display', 'block')
@@ -140,7 +146,7 @@ export default {
           d3.select(this).style('opacity', 0.7);
         })
         .on('mouseout', function() {
-          const tooltip = d3.select(`#tooltip_bar1`);
+          const tooltip = d3.select(`#horizontalBarTooltip_${that.id}`);
           tooltip.style('display', 'none');
           d3.select(this).style('opacity', 1);
         });
@@ -168,6 +174,11 @@ export default {
   position: relative;
   background-color: #efefef;
 }
+.scroll-container {
+  height: 170px;
+  overflow-y: scroll;
+  margin: 10px auto;
+}
 .tooltip {
   border: 1px solid #ccc;
   position: absolute;
@@ -180,11 +191,15 @@ export default {
 .data {
   font-weight: bold;
 }
+.noStroke path,
+.noStroke line {
+  stroke: none;
+}
 .axis {
   font-style: 'SemiBold';
   font-size: 14px;
 }
 .axis-grid line {
-  stroke: red;
+  stroke: #ccc;
 }
 </style>
