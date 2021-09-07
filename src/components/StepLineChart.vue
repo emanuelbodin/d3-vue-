@@ -32,8 +32,11 @@
       </g>
     </svg>
     <div class="tooltip" :id="`tooltipStepLineChart_${id}`">
-      <div class="data"></div>
-      <div class="date"></div>
+      <svg
+        :id="`lineStepChartTooltip_${id}`"
+        :height="'100%'"
+        :width="'100%'"
+      ></svg>
     </div>
   </div>
 </template>
@@ -54,7 +57,6 @@ export default {
   },
   data() {
     return {
-      data: null,
       tooltipPosition: { top: 10, right: 50 },
       dimensions: { width: 600, height: 300, margins: 50, padding: 10 },
     };
@@ -68,7 +70,7 @@ export default {
     },
     xScale() {
       return d3
-        .scaleUtc()
+        .scaleLinear()
         .domain(d3.extent(this.mergedData, this.xAccessor))
         .range([0, this.ctrWidth - this.dimensions.padding]);
     },
@@ -93,11 +95,10 @@ export default {
         .tickValues([0, 50, 100]);
     },
     xAxis() {
-      const tickValues = this.dataset[0].values.map((el) => new Date(el.x));
       return d3
         .axisBottom(this.xScale)
-        .tickFormat(d3.timeFormat('%a'))
-        .tickValues(tickValues);
+        .tickFormat((d) => `${d}%`)
+        .tickValues([0, 50, 100]);
     },
     mergedData() {
       const mergedDataset = this.dataset.map((el) => el.values);
@@ -106,8 +107,7 @@ export default {
   },
   methods: {
     xAccessor(d) {
-      const parseDate = d3.timeParse('%Y-%m-%d');
-      return parseDate(d.x);
+      return parseInt(d.x);
     },
     yAccessor(d) {
       return parseInt(d.y);
@@ -133,7 +133,7 @@ export default {
           const index = bisector(that.dataset[0].values, date);
           const points = [];
           that.dataset.forEach((el) => {
-            points.push(el.values[index - 1]);
+            points.push({ ...el.values[index - 1], name: el.name });
           });
           if (points.findIndex((el) => el == null) !== -1) return;
           // Update Image
@@ -144,15 +144,17 @@ export default {
             .attr('cx', (d) => that.xScale(that.xAccessor(d)))
             .attr('cy', (d) => that.yScale(that.yAccessor(d)))
             .raise();
-          const text = points.map((el) => el.y);
           tooltip
             .style('display', 'block')
             .style('top', that.tooltipPosition.top + 'px')
             .style('left', that.ctrWidth - that.tooltipPosition.right + 'px');
-          tooltip.select('.data').text(text);
 
-          const dateFormatter = d3.timeFormat('%B %-d, %Y');
-          tooltip.select('.date').text(`${dateFormatter(date)}`);
+          tooltip
+            .selectAll('text')
+            .data(points)
+            .text((d) => `${d.name}: ${d.y}%`);
+
+          tooltip.select('.date').text(Math.floor(date) + '%');
         })
         // eslint-disable-next-line no-unused-vars
         .on('mouseleave', function(event) {
@@ -173,20 +175,70 @@ export default {
         .attr('stroke-width', 2)
         .style('opacity', 0)
         .style('pointer-events', 'none');
+
+      d3.select(`#lineStepChartTooltip_${this.id}`)
+        .selectAll('line')
+        .data(this.dataset)
+        .join((enter) => enter.append('line'))
+        .attr('x1', 0)
+        .attr('x2', 25)
+        .attr('y1', (_d, i) => 10 + i * 20)
+        .attr('y2', (_d, i) => 10 + i * 20)
+        .attr('stroke', (d) => d.color)
+        .attr('stroke-width', 5)
+        .attr('stroke-dasharray', (d) => (d.dotted ? '5,5' : null));
+      d3.select(`#lineStepChartTooltip_${this.id}`)
+        .selectAll('text')
+        .data(this.dataset)
+        .join((enter) => enter.append('text'))
+        .attr('x', 30)
+        .attr('y', (_d, i) => 13 + i * 20)
+        .text((d) => d.name)
+        .attr('fill', '#000')
+        .style('font-size', '10px');
     },
     drawLine() {
+      let usageLine, bookingLine;
+      this.dataset.forEach((data, index) => {
+        let line = 'M';
+        data.values.forEach((d, i) => {
+          const y0 = this.yScale(this.yAccessor(d));
+          const x0 = this.xScale(this.xAccessor(d));
+          if (i === 0) {
+            line += `${x0},${y0}H${x0}`;
+          } else {
+            line += `H${x0}`;
+          }
+          if (data.values[i + 1]) {
+            line += `V${this.yScale(this.yAccessor(data.values[i + 1]))}`;
+          }
+        });
+        if (index === 0) usageLine = line;
+        else if (index === 1) bookingLine = line;
+      });
+      const data = [
+        {
+          line: usageLine,
+          color: this.dataset[0].color,
+          visible: this.dataset[0].visible,
+        },
+        {
+          line: bookingLine,
+          color: this.dataset[1].color,
+          visible: this.dataset[1].visible,
+        },
+      ];
       d3.select(`#lineGroupStepLineChart_${this.id}`)
         .selectAll('path')
-        .data(this.dataset)
+        .data(data)
         .join((enter) => enter.append('path'))
         .transition()
         .duration(500)
-        .attr('d', (d) => this.lineGenerator(d.values))
-        .attr('id', (d) => 'line' + d.id)
+        .attr('d', (d) => d.line)
+        .attr('id', 1)
         .attr('fill', 'none')
         .attr('stroke', (d) => d.color)
         .attr('stroke-width', 2)
-        .attr('stroke-dasharray', (d) => (d.dotted ? '5,5' : null))
         .style('opacity', (d) => (d.visible ? 1 : 0));
     },
     draw() {

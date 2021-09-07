@@ -6,18 +6,22 @@
     </div>
     <div class="row">
       <div class="col">
-        <LineChart :dataset="lineData" @toggle="toggleLine" />
+        <LineChart :id="'line1'" :dataset="lineData" @toggle="toggleLine" />
       </div>
       <div class="col">
-        <BarChart :id="'bar1'" :dataset="barData" />
+        <StepLineChart
+          :id="'step1'"
+          :dataset="stepLineData"
+          @toggle="toggleLine2"
+        />
       </div>
     </div>
     <div class="row">
       <div class="col">
-        <HorizontalBarChart :id="'bar1'" :dataset="horizontalBarData" />
+        <BarChart :id="'bar1'" :dataset="barData" />
       </div>
       <div class="col">
-        <StepLineChart :id="'step1'" :dataset="lineData" />
+        <HorizontalBarChart :id="'bar1'" :dataset="horizontalBarData" />
       </div>
     </div>
   </div>
@@ -37,11 +41,18 @@ export default {
       lineData: [],
       barData: {},
       horizontalBarData: {},
+      stepLineData: [],
     };
   },
   methods: {
     toggleLine(id) {
       this.lineData = this.lineData.map((el) => {
+        if (el.id === id) el.visible = !el.visible;
+        return el;
+      });
+    },
+    toggleLine2(id) {
+      this.stepLineData = this.stepLineData.map((el) => {
         if (el.id === id) el.visible = !el.visible;
         return el;
       });
@@ -53,6 +64,8 @@ export default {
       const maxBookings = {};
       const barData = {};
       const horizontalBarData = {};
+      const usagePattern = {};
+      const bookingPattern = {};
       if (num === 1) {
         usage.values = await d3.csv('datasets/v1/usage.csv');
         bookings.values = await d3.csv('datasets/v1/booking.csv');
@@ -60,6 +73,8 @@ export default {
         maxBookings.values = await d3.csv('datasets/v1/maxBooking.csv');
         barData.values = await d3.csv('datasets/v1/bookedAndUsed.csv');
         horizontalBarData.values = await d3.csv('datasets/v1/roomData.csv');
+        usagePattern.values = await d3.csv('datasets/v1/usagePattern.csv');
+        bookingPattern.values = await d3.csv('datasets/v1/bookingPattern.csv');
       }
       if (num === 2) {
         usage.values = await d3.csv('datasets/v2/usage.csv');
@@ -68,11 +83,21 @@ export default {
         maxBookings.values = await d3.csv('datasets/v2/maxBooking.csv');
         barData.values = await d3.csv('datasets/v2/bookedAndUsed.csv');
         horizontalBarData.values = await d3.csv('datasets/v2/roomData.csv');
+        usagePattern.values = await d3.csv('datasets/v2/usagePattern.csv');
+        bookingPattern.values = await d3.csv('datasets/v2/bookingPattern.csv');
       }
       usage.color = '#D1A617';
       maxUsage.color = '#D1A617';
       bookings.color = '#5A657D';
       maxBookings.color = '#5A657D';
+      usagePattern.color = '#D1A617';
+      bookingPattern.color = '#5A657D';
+      usagePattern.name = 'Användning';
+      bookingPattern.name = 'Bokning';
+      usagePattern.visible = true;
+      bookingPattern.visible = true;
+      usagePattern.id = 'step1';
+      bookingPattern.id = 'step2';
       barData.colors = {
         used: '#D1A617',
         booked: '#5A657D',
@@ -126,6 +151,7 @@ export default {
       });
       this.barData = barData;
       this.horizontalBarData = horizontalBarData;
+      this.stepLineData = [usagePattern, bookingPattern];
     },
   },
   async mounted() {

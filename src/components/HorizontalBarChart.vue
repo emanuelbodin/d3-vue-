@@ -7,21 +7,30 @@
       ></g>
     </svg>
     <div class="scroll-container">
-      <svg :height="svgHeight" :width="dimensions.width">
+      <svg
+        :height="svgHeight"
+        :width="dimensions.width"
+        reserveAspectRatio="none"
+      >
         <g
           :transform="
             `translate(${this.dimensions.margins}, ${this.dimensions.margins})`
           "
         >
+          <g id="barLabels"></g>
+
           <g :id="`horizontalBarGroup_${id}`"></g>
           <g :id="`horizontalBarAxisGroupY_${id}`"></g>
         </g>
       </svg>
     </div>
 
-    <div class="tooltip" :id="`horizontalBarTooltip_${id}`">
-      <div class="data"></div>
-      <div class="date"></div>
+    <div class="tooltip" :id="`horizontalBarChartTooltipDiv_${id}`">
+      <svg
+        :id="`horizontalBarChartTooltip_${id}`"
+        :height="'100%'"
+        :width="'100%'"
+      ></svg>
     </div>
   </div>
 </template>
@@ -103,6 +112,7 @@ export default {
       return parseInt(d.y);
     },
     drawAxis() {
+      /*
       d3.select(`#horizontalBarAxisGroupY_${this.id}`)
         .classed('noStroke', true)
         .classed('axis', true)
@@ -110,6 +120,7 @@ export default {
         .call(this.yAxis)
         .call((g) => g.select('.domain').remove())
         .call((g) => g.selectAll('line').remove());
+        */
       d3.select(`#horizontalBarAxisGroupX_${this.id}`)
         .classed('noStroke', true)
         .style('position', 'fixed')
@@ -135,23 +146,50 @@ export default {
         .attr('fill', (d) => this.dataset.colors[d.key])
         .on('mouseover', function(event, d) {
           const name = that.dataset.names[d.key];
+          const color = that.dataset.colors[d.key];
           const value = d.data[d.key];
-          const tooltip = d3.select(`#horizontalBarTooltip_${that.id}`);
-          const mousePos = d3.pointer(event, this);
+          const tooltip = d3.select(`#horizontalBarChartTooltipDiv_${that.id}`);
+          //const mousePos = d3.pointer(event, this);
           tooltip
             .style('display', 'block')
-            .style('top', mousePos[1] + 'px')
-            .style('left', mousePos[0] + 20 + 'px');
-          tooltip.select('.data').text(`${name}: ${value}%`);
+            .style('top', 0 + 'px')
+            .style('left', that.ctrWidth - 100 + 'px');
+          tooltip.selectAll('circle').attr('fill', color);
+          tooltip.selectAll('#tooltipText').text(`${name}: ${value}%`);
           d3.select(this).style('opacity', 0.7);
         })
         .on('mouseout', function() {
-          const tooltip = d3.select(`#horizontalBarTooltip_${that.id}`);
+          const tooltip = d3.select(`#horizontalBarChartTooltipDiv_${that.id}`);
           tooltip.style('display', 'none');
           d3.select(this).style('opacity', 1);
         });
+      console.log(this.dataset);
+      d3.select('#barLabels')
+        .selectAll('text')
+        .data(this.dataset.values)
+        .join((enter) => enter.append('text'))
+        .attr('x', this.xScale(0))
+        .attr('y', (d) => this.yScale(d.room))
+        .text((d) => d.room)
+        .style('color', 'green');
+    },
+    drawToolTip() {
+      d3.select(`#horizontalBarChartTooltip_${this.id}`)
+        .append('circle')
+        .attr('cx', 10)
+        .attr('cy', 10)
+        .attr('r', 6)
+        .attr('fill', '#000');
+      d3.select(`#horizontalBarChartTooltip_${this.id}`)
+        .append('text')
+        .attr('x', 20)
+        .attr('y', 13)
+        .attr('id', 'tooltipText')
+        .attr('fill', '#000')
+        .style('font-size', '10px');
     },
     draw() {
+      this.drawToolTip();
       this.drawBars();
       this.drawAxis();
     },
@@ -177,9 +215,10 @@ export default {
 .scroll-container {
   height: 170px;
   overflow-y: scroll;
-  margin: 10px auto;
 }
 .tooltip {
+  height: 20px;
+  width: 170px;
   border: 1px solid #ccc;
   position: absolute;
   padding: 5px;

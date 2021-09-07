@@ -1,5 +1,5 @@
 <template>
-  <div v-if="dataset != null" class="chart" id="lineChart">
+  <div v-if="dataset != null" class="chart" :id="id">
     <div class="legend-container">
       <div v-for="data in dataset" :key="data.id">
         <label>{{ data.name }}</label>
@@ -12,28 +12,36 @@
         />
       </div>
     </div>
-    <svg id="svg" :height="dimensions.height" :width="dimensions.width">
+    <svg
+      id="svg"
+      :height="dimensions.height"
+      :width="dimensions.width"
+      reserveAspectRatio="none"
+    >
       <g
         id="ctr"
         :transform="
           `translate(${this.dimensions.margins}, ${this.dimensions.margins})`
         "
       >
-        <g id="tooltipDots"></g>
-        <g id="lineGroup"></g>
-        <g id="axisGroupY"></g>
-        <g id="axisGroupX"></g>
+        <g :id="`tooltipDotsLineChart_${id}`"></g>
+        <g :id="`lineGroupLineChart_${id}`"></g>
+        <g :id="`axisGroupYLineChart_${id}`"></g>
+        <g :id="`axisGroupXLineChart_${id}`"></g>
         <rect
-          id="tooltipBisector"
+          :id="`tooltipBisectorLineChart_${id}`"
           :width="ctrWidth"
           :height="ctrHeight"
           style="opacity: 0;"
         ></rect>
       </g>
     </svg>
-    <div class="tooltip" id="lineChartTooltip">
-      <div class="data"></div>
-      <div class="date"></div>
+    <div class="tooltip" :id="`lineChartTooltipDiv_${id}`">
+      <svg
+        :id="`lineChartTooltip_${id}`"
+        :height="'100%'"
+        :width="'100%'"
+      ></svg>
     </div>
   </div>
 </template>
@@ -47,10 +55,13 @@ export default {
       type: Array,
       required: false,
     },
+    id: {
+      type: String,
+      required: true,
+    },
   },
   data() {
     return {
-      data: null,
       tooltipPosition: { top: 10, right: 50 },
       dimensions: { width: 600, height: 300, margins: 50, padding: 10 },
     };
@@ -109,18 +120,18 @@ export default {
       return parseInt(d.y);
     },
     drawAxis() {
-      d3.select('#axisGroupY')
+      d3.select(`#axisGroupYLineChart_${this.id}`)
         .call(this.yAxis)
         .call((g) => g.select('.domain').remove());
-      d3.select('#axisGroupX')
+      d3.select(`#axisGroupXLineChart_${this.id}`)
         .style('transform', `translateY(${this.ctrHeight}px`)
         .call(this.xAxis)
         .call((g) => g.select('.domain').remove())
         .call((g) => g.selectAll('line').remove());
     },
     drawTooltipBisector(that) {
-      const tooltip = d3.select('#lineChartTooltip');
-      d3.select('#tooltipBisector')
+      const tooltip = d3.select(`#lineChartTooltipDiv_${this.id}`);
+      d3.select(`#tooltipBisectorLineChart_${this.id}`)
         .on('touchmouse mousemove', function(event) {
           const mousePos = d3.pointer(event, this);
           const date = that.xScale.invert(mousePos[0]);
@@ -129,37 +140,38 @@ export default {
           const index = bisector(that.dataset[0].values, date);
           const points = [];
           that.dataset.forEach((el) => {
-            points.push(el.values[index - 1]);
+            points.push({ ...el.values[index - 1], name: el.name });
           });
           if (points.findIndex((el) => el == null) !== -1) return;
           // Update Image
-          d3.select('#tooltipDots')
+          d3.select(`#tooltipDotsLineChart_${that.id}`)
             .selectAll('circle')
             .data(points)
             .style('opacity', 1)
             .attr('cx', (d) => that.xScale(that.xAccessor(d)))
             .attr('cy', (d) => that.yScale(that.yAccessor(d)))
             .raise();
-          const text = points.map((el) => el.y);
           tooltip
             .style('display', 'block')
             .style('top', that.tooltipPosition.top + 'px')
             .style('left', that.ctrWidth - that.tooltipPosition.right + 'px');
-          tooltip.select('.data').text(text);
+          tooltip
+            .selectAll('text')
+            .data(points)
+            .text((d) => `${d.name}: ${d.y}%`);
 
           const dateFormatter = d3.timeFormat('%B %-d, %Y');
           tooltip.select('.date').text(`${dateFormatter(date)}`);
         })
-        // eslint-disable-next-line no-unused-vars
-        .on('mouseleave', function(event) {
-          d3.select('#tooltipDots')
+        .on('mouseleave', function() {
+          d3.select(`#tooltipDotsLineChart_${that.id}`)
             .selectAll('circle')
             .style('opacity', 0);
           tooltip.style('display', 'none');
         });
     },
-    createToolTipDots() {
-      d3.select('#tooltipDots')
+    createToolTip() {
+      d3.select(`#tooltipDotsLineChart_${this.id}`)
         .selectAll('circle')
         .data(this.dataset)
         .join((enter) => enter.append('circle'))
@@ -169,9 +181,30 @@ export default {
         .attr('stroke-width', 2)
         .style('opacity', 0)
         .style('pointer-events', 'none');
+
+      d3.select(`#lineChartTooltip_${this.id}`)
+        .selectAll('line')
+        .data(this.dataset)
+        .join((enter) => enter.append('line'))
+        .attr('x1', 0)
+        .attr('x2', 25)
+        .attr('y1', (_d, i) => 5 + i * 10)
+        .attr('y2', (_d, i) => 5 + i * 10)
+        .attr('stroke', (d) => d.color)
+        .attr('stroke-width', 4)
+        .attr('stroke-dasharray', (d) => (d.dotted ? '5,5' : null));
+      d3.select(`#lineChartTooltip_${this.id}`)
+        .selectAll('text')
+        .data(this.dataset)
+        .join((enter) => enter.append('text'))
+        .attr('x', 30)
+        .attr('y', (_d, i) => 8 + i * 10)
+        .text((d) => d.name)
+        .attr('fill', '#000')
+        .style('font-size', '10px');
     },
     drawLine() {
-      d3.select('#lineGroup')
+      d3.select(`#lineGroupLineChart_${this.id}`)
         .selectAll('path')
         .data(this.dataset)
         .join((enter) => enter.append('path'))
@@ -186,7 +219,7 @@ export default {
         .style('opacity', (d) => (d.visible ? 1 : 0));
     },
     draw() {
-      this.createToolTipDots();
+      this.createToolTip();
       this.drawLine();
       this.drawAxis();
       this.drawTooltipBisector(this);
@@ -204,6 +237,10 @@ export default {
 </script>
 
 <style scoped>
+.tooltiå-text {
+  font-size: 4;
+  color: #000;
+}
 .legend-container {
   display: flex;
   justify-content: space-around;

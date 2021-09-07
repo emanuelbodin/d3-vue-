@@ -11,9 +11,8 @@
         <g :id="`axisGroupX_${id}`"></g>
       </g>
     </svg>
-    <div class="tooltip" :id="`tooltip_${id}`">
-      <div class="data"></div>
-      <div class="date"></div>
+    <div class="tooltip" :id="`barChartTooltipDiv_${id}`">
+      <svg :id="`barChartTooltip_${id}`" :height="'100%'" :width="'100%'"></svg>
     </div>
   </div>
 </template>
@@ -74,13 +73,6 @@ export default {
         .range([this.ctrHeight, 0])
         .nice();
     },
-    colorScale() {
-      return d3
-        .scaleOrdinal()
-        .domain(this.stackData.map((d) => d.key))
-        .range(d3.schemeSpectral[this.stackData.length])
-        .unknown('#ccc');
-    },
     yAxis() {
       return d3
         .axisLeft(this.yScale)
@@ -129,23 +121,41 @@ export default {
         .attr('fill', (d) => this.dataset.colors[d.key])
         .on('mouseover', function(event, d) {
           const name = that.dataset.names[d.key];
+          const color = that.dataset.colors[d.key];
           const value = d.data[d.key];
-          const tooltip = d3.select(`#tooltip_${that.id}`);
+          const tooltip = d3.select(`#barChartTooltipDiv_${that.id}`);
           const mousePos = d3.pointer(event, this);
           tooltip
             .style('display', 'block')
-            .style('top', mousePos[1] + 'px')
-            .style('left', mousePos[0] + 20 + 'px');
-          tooltip.select('.data').text(`${name}: ${value}%`);
+            .style('top', mousePos[1] + 15 + 'px')
+            .style('left', mousePos[0] + 25 + 'px');
+          tooltip.selectAll('circle').attr('fill', color);
+          tooltip.selectAll('#tooltipText').text(`${name}: ${value}%`);
           d3.select(this).style('opacity', 0.7);
         })
         .on('mouseout', function() {
-          const tooltip = d3.select(`#tooltip_bar1`);
+          const tooltip = d3.select(`#barChartTooltipDiv_${that.id}`);
           tooltip.style('display', 'none');
           d3.select(this).style('opacity', 1);
         });
     },
+    drawToolTip() {
+      d3.select(`#barChartTooltip_${this.id}`)
+        .append('circle')
+        .attr('cx', 10)
+        .attr('cy', 10)
+        .attr('r', 6)
+        .attr('fill', '#000');
+      d3.select(`#barChartTooltip_${this.id}`)
+        .append('text')
+        .attr('x', 20)
+        .attr('y', 13)
+        .attr('id', 'tooltipText')
+        .attr('fill', '#000')
+        .style('font-size', '10px');
+    },
     draw() {
+      this.drawToolTip();
       this.drawBars();
       this.drawAxis();
     },
@@ -169,6 +179,8 @@ export default {
   background-color: #efefef;
 }
 .tooltip {
+  height: 20px;
+  width: 170px;
   border: 1px solid #ccc;
   position: absolute;
   padding: 5px;
