@@ -12,11 +12,7 @@
         :width="dimensions.width"
         reserveAspectRatio="none"
       >
-        <g
-          :transform="
-            `translate(${this.dimensions.margins}, ${this.dimensions.margins})`
-          "
-        >
+        <g :transform="`translate(${this.dimensions.margins}, 20)`">
           <g id="barLabels"></g>
 
           <g :id="`horizontalBarGroup_${id}`"></g>
@@ -52,12 +48,14 @@ export default {
   data() {
     return {
       dimensions: { width: 600, height: 300, margins: 50 },
+      dominantBaseline: 'text-bottom',
+      textOffset: 10,
     };
   },
   computed: {
     svgHeight() {
       if (this.dataset.values == null) return 0;
-      return this.dataset.values.length * 40 - this.dimensions.margins * 2;
+      return this.dataset.values.length * 40 + 100;
     },
     ctrWidth() {
       return this.dimensions.width - this.dimensions.margins * 2;
@@ -112,21 +110,15 @@ export default {
       return parseInt(d.y);
     },
     drawAxis() {
-      /*
-      d3.select(`#horizontalBarAxisGroupY_${this.id}`)
-        .classed('noStroke', true)
-        .classed('axis', true)
-        .classed('axis-grid', true)
-        .call(this.yAxis)
-        .call((g) => g.select('.domain').remove())
-        .call((g) => g.selectAll('line').remove());
-        */
       d3.select(`#horizontalBarAxisGroupX_${this.id}`)
-        .classed('noStroke', true)
         .style('position', 'fixed')
         .call(this.xAxis)
         .call((g) => g.select('.domain').remove())
-        .call((g) => g.selectAll('line').remove());
+        .call((g) => g.selectAll('line').remove())
+        .selectAll('.tick')
+        .selectAll('text')
+        .attr('fill', '#6A6A6A')
+        .style('font-size', 12);
     },
     drawBars() {
       const that = this;
@@ -140,10 +132,15 @@ export default {
         .data((d) => d)
         .join('rect')
         .attr('x', (d) => this.xScale(d[0]))
-        .attr('y', (d) => this.yScale(d.data.room))
+        .attr(
+          'y',
+          (d) => this.yScale(d.data.room) + this.yScale.bandwidth() / 5
+        )
         .attr('width', (d) => this.xScale(d[1]) - this.xScale(d[0]))
-        .attr('height', this.yScale.bandwidth())
+        .attr('height', this.yScale.bandwidth() / 4)
         .attr('fill', (d) => this.dataset.colors[d.key])
+        .attr('rx', 1)
+        .attr('ry', 1)
         .on('mouseover', function(event, d) {
           const name = that.dataset.names[d.key];
           const color = that.dataset.colors[d.key];
@@ -163,15 +160,20 @@ export default {
           tooltip.style('display', 'none');
           d3.select(this).style('opacity', 1);
         });
-      console.log(this.dataset);
       d3.select('#barLabels')
         .selectAll('text')
         .data(this.dataset.values)
         .join((enter) => enter.append('text'))
         .attr('x', this.xScale(0))
-        .attr('y', (d) => this.yScale(d.room))
-        .text((d) => d.room)
-        .style('color', 'green');
+        .attr(
+          'y',
+          (d) =>
+            this.yScale(d.room) + this.yScale.bandwidth() / 5 - this.textOffset
+        )
+        .attr('dominant-baseline', this.dominantBaseline)
+        .style('fill', '#6A6A6A')
+        .style('font-size', '12px')
+        .text((d) => d.room);
     },
     drawToolTip() {
       d3.select(`#horizontalBarChartTooltip_${this.id}`)
@@ -227,18 +229,7 @@ export default {
   pointer-events: none;
   border-radius: 10px;
 }
-.data {
-  font-weight: bold;
-}
-.noStroke path,
-.noStroke line {
-  stroke: none;
-}
-.axis {
-  font-style: 'SemiBold';
-  font-size: 14px;
-}
-.axis-grid line {
-  stroke: #ccc;
+.bar-label {
+  color: '#6A6A6A';
 }
 </style>

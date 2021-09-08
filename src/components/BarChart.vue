@@ -6,8 +6,8 @@
           `translate(${this.dimensions.margins}, ${this.dimensions.margins})`
         "
       >
-        <g :id="`barGroup_${id}`"></g>
         <g :id="`axisGroupY_${id}`"></g>
+        <g :id="`barGroup_${id}`"></g>
         <g :id="`axisGroupX_${id}`"></g>
       </g>
     </svg>
@@ -59,7 +59,7 @@ export default {
         .scaleBand()
         .domain(this.dataset.values.map((d) => this.xAccessor(d)))
         .range([0, this.ctrWidth])
-        .padding(0.1);
+        .padding(0.5);
     },
     yScale() {
       return d3
@@ -77,6 +77,7 @@ export default {
       return d3
         .axisLeft(this.yScale)
         .tickFormat((d) => d + '%')
+        .tickSize(-this.ctrWidth, 0, 0)
         .tickValues([0, 50, 100]);
     },
     xAxis() {
@@ -92,16 +93,29 @@ export default {
       return parseInt(d.y);
     },
     drawAxis() {
-      d3.select(`#axisGroupY_${this.id}`)
+      const yAxis = d3
+        .select(`#axisGroupY_${this.id}`)
         .classed('axis', true)
-        .classed('axis-grid', true)
         .call(this.yAxis)
         .call((g) => g.select('.domain').remove());
-      d3.select(`#axisGroupX_${this.id}`)
+      yAxis
+        .selectAll('g')
+        .selectAll('line')
+        .attr('stroke', '#BABABA');
+      yAxis
+        .selectAll('g')
+        .selectAll('text')
+        .attr('fill', '#6A6A6A');
+      const xAxis = d3
+        .select(`#axisGroupX_${this.id}`)
         .style('transform', `translateY(${this.ctrHeight}px`)
         .call(this.xAxis)
         .call((g) => g.select('.domain').remove())
         .call((g) => g.selectAll('line').remove());
+      xAxis
+        .selectAll('g')
+        .selectAll('text')
+        .attr('fill', '#6A6A6A');
     },
     drawBars() {
       const that = this;
@@ -119,6 +133,8 @@ export default {
         .attr('width', this.xScale.bandwidth())
         .attr('height', (d) => this.yScale(d[0]) - this.yScale(d[1]))
         .attr('fill', (d) => this.dataset.colors[d.key])
+        .attr('rx', 1)
+        .attr('ry', 1)
         .on('mouseover', function(event, d) {
           const name = that.dataset.names[d.key];
           const color = that.dataset.colors[d.key];
@@ -195,8 +211,5 @@ export default {
 .axis {
   font-style: 'SemiBold';
   font-size: 14px;
-}
-.axis-grid line {
-  stroke: red;
 }
 </style>

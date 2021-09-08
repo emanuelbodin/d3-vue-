@@ -120,14 +120,28 @@ export default {
       return parseInt(d.y);
     },
     drawAxis() {
-      d3.select(`#axisGroupYLineChart_${this.id}`)
+      const yAxis = d3
+        .select(`#axisGroupYLineChart_${this.id}`)
         .call(this.yAxis)
         .call((g) => g.select('.domain').remove());
-      d3.select(`#axisGroupXLineChart_${this.id}`)
+      yAxis
+        .selectAll('g')
+        .selectAll('line')
+        .attr('stroke', '#BABABA');
+      yAxis
+        .selectAll('g')
+        .selectAll('text')
+        .attr('fill', '#6A6A6A');
+      const xAxis = d3
+        .select(`#axisGroupXLineChart_${this.id}`)
         .style('transform', `translateY(${this.ctrHeight}px`)
         .call(this.xAxis)
         .call((g) => g.select('.domain').remove())
         .call((g) => g.selectAll('line').remove());
+      xAxis
+        .selectAll('g')
+        .selectAll('text')
+        .attr('fill', '#6A6A6A');
     },
     drawTooltipBisector(that) {
       const tooltip = d3.select(`#lineChartTooltipDiv_${this.id}`);
@@ -200,7 +214,7 @@ export default {
         .attr('x', 30)
         .attr('y', (_d, i) => 8 + i * 10)
         .text((d) => d.name)
-        .attr('fill', '#000')
+        .attr('fill', '#6A6A6A')
         .style('font-size', '10px');
     },
     drawLine() {
@@ -237,9 +251,8 @@ export default {
 </script>
 
 <style scoped>
-.tooltiå-text {
+.tooltip-text {
   font-size: 4;
-  color: #000;
 }
 .legend-container {
   display: flex;

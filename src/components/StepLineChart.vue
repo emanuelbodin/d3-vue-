@@ -113,14 +113,28 @@ export default {
       return parseInt(d.y);
     },
     drawAxis() {
-      d3.select(`#axisGroupYStepLineChart_${this.id}`)
+      const yAxis = d3
+        .select(`#axisGroupYStepLineChart_${this.id}`)
         .call(this.yAxis)
         .call((g) => g.select('.domain').remove());
-      d3.select(`#axisGroupXStepLineChart_${this.id}`)
+      yAxis
+        .selectAll('g')
+        .selectAll('line')
+        .attr('stroke', '#BABABA');
+      yAxis
+        .selectAll('g')
+        .selectAll('text')
+        .attr('fill', '#6A6A6A');
+      const xAxis = d3
+        .select(`#axisGroupXStepLineChart_${this.id}`)
         .style('transform', `translateY(${this.ctrHeight}px`)
         .call(this.xAxis)
         .call((g) => g.select('.domain').remove())
         .call((g) => g.selectAll('line').remove());
+      xAxis
+        .selectAll('g')
+        .selectAll('text')
+        .attr('fill', '#6A6A6A');
     },
     drawTooltipBisector(that) {
       const tooltip = d3.select(`#tooltipStepLineChart_${this.id}`);
@@ -293,14 +307,5 @@ export default {
 .axis {
   font-style: 'SemiBold';
   font-size: 14px;
-}
-
-.grid line {
-  stroke: red;
-  stroke-opacity: 0.7;
-  shape-rendering: crispEdges;
-}
-.grid path {
-  stroke-width: 1;
 }
 </style>

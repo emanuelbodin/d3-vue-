@@ -165,6 +165,7 @@ export default {
 
 * {
   font-family: 'Raleway', sans-serif;
+  color: 'blue';
   display: border-box;
 }
 .row {
