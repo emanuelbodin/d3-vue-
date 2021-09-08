@@ -7,11 +7,7 @@
       ></g>
     </svg>
     <div class="scroll-container">
-      <svg
-        :height="svgHeight"
-        :width="dimensions.width"
-        reserveAspectRatio="none"
-      >
+      <svg :height="svgHeight" width="100%" reserveAspectRatio="none">
         <g :transform="`translate(${this.dimensions.margins}, 20)`">
           <g id="barLabels"></g>
 
@@ -24,8 +20,8 @@
     <div class="tooltip" :id="`horizontalBarChartTooltipDiv_${id}`">
       <svg
         :id="`horizontalBarChartTooltip_${id}`"
-        :height="'100%'"
-        :width="'100%'"
+        height="100%"
+        width="100%"
       ></svg>
     </div>
   </div>
@@ -209,7 +205,8 @@ export default {
 
 <style scoped>
 .chart {
-  height: 350px;
+  height: 300px;
+  width: 600px;
   margin: 25px auto;
   position: relative;
   background-color: #efefef;

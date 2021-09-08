@@ -1,6 +1,6 @@
 <template>
   <div v-if="dataset != null" class="chart">
-    <svg :height="dimensions.height" :width="dimensions.width">
+    <svg height="100%" width="100%">
       <g
         :transform="
           `translate(${this.dimensions.margins}, ${this.dimensions.margins})`
@@ -12,7 +12,7 @@
       </g>
     </svg>
     <div class="tooltip" :id="`barChartTooltipDiv_${id}`">
-      <svg :id="`barChartTooltip_${id}`" :height="'100%'" :width="'100%'"></svg>
+      <svg :id="`barChartTooltip_${id}`" height="100%" width="100%"></svg>
     </div>
   </div>
 </template>
@@ -189,7 +189,8 @@ export default {
 
 <style scoped>
 .chart {
-  height: 350px;
+  height: 300px;
+  width: 600px;
   margin: 25px auto;
   position: relative;
   background-color: #efefef;
@@ -204,12 +205,5 @@ export default {
   display: none;
   pointer-events: none;
   border-radius: 10px;
-}
-.data {
-  font-weight: bold;
-}
-.axis {
-  font-style: 'SemiBold';
-  font-size: 14px;
 }
 </style>

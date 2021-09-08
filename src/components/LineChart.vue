@@ -12,12 +12,7 @@
         />
       </div>
     </div>
-    <svg
-      id="svg"
-      :height="dimensions.height"
-      :width="dimensions.width"
-      reserveAspectRatio="none"
-    >
+    <svg id="svg" height="100%" width="100%" reserveAspectRatio="none">
       <g
         id="ctr"
         :transform="
@@ -37,11 +32,7 @@
       </g>
     </svg>
     <div class="tooltip" :id="`lineChartTooltipDiv_${id}`">
-      <svg
-        :id="`lineChartTooltip_${id}`"
-        :height="'100%'"
-        :width="'100%'"
-      ></svg>
+      <svg :id="`lineChartTooltip_${id}`" height="100%" width="100%"></svg>
     </div>
   </div>
 </template>
@@ -259,7 +250,8 @@ export default {
   justify-content: space-around;
 }
 .chart {
-  height: 350px;
+  height: 300px;
+  width: 600px;
   margin: 25px auto;
   position: relative;
   background-color: #efefef;
@@ -274,27 +266,5 @@ export default {
   border-radius: 10px;
   width: 120px;
   height: 40px;
-}
-
-.data {
-  font-weight: bold;
-}
-
-.noStroke path,
-.noStroke line {
-  stroke: none;
-}
-.axis {
-  font-style: 'SemiBold';
-  font-size: 14px;
-}
-
-.grid line {
-  stroke: red;
-  stroke-opacity: 0.7;
-  shape-rendering: crispEdges;
-}
-.grid path {
-  stroke-width: 1;
 }
 </style>
