@@ -6,7 +6,8 @@
     </div>
     <div class="row">
       <div class="col">
-        <LineChart :id="'line1'" :dataset="lineData" @toggle="toggleLine" />
+        <Legends :dataset="lineData" @toggle="toggleLine" />
+        <LineChart :id="'line1'" :dataset="lineData" />
       </div>
       <div class="col">
         <StepLineChart
@@ -32,13 +33,61 @@ import LineChart from './components/LineChart.vue';
 import BarChart from './components/BarChart.vue';
 import HorizontalBarChart from './components/HorizontalBarChart.vue';
 import StepLineChart from './components/StepLineChart.vue';
+import Legends from './components/Legends.vue';
 import * as d3 from 'd3';
 export default {
   name: 'App',
-  components: { LineChart, BarChart, HorizontalBarChart, StepLineChart },
+  components: {
+    LineChart,
+    BarChart,
+    HorizontalBarChart,
+    StepLineChart,
+    Legends,
+  },
   data() {
     return {
-      lineData: [],
+      datasetNumber: 1,
+      lineData: {
+        resolution: 'DAY',
+        data: [
+          {
+            id: 'usage1',
+            name: 'Användning',
+            values: [],
+            color: '#D1A617',
+            dashed: false,
+            visible: true,
+            showLegend: true,
+          },
+          {
+            id: 'usage2',
+            name: 'Bokning',
+            values: [],
+            color: '#5A657D',
+            dashed: false,
+            visible: true,
+            showLegend: true,
+          },
+          {
+            id: 'usage3',
+            name: 'Max Användning',
+            values: [],
+            color: '#D1A617',
+            dashed: true,
+            visible: true,
+            showLegend: false,
+          },
+          {
+            id: 'usage4',
+            name: 'Max Bokning',
+            values: [],
+            color: '#5A657D',
+            dashed: true,
+            visible: true,
+            showLegend: false,
+          },
+        ],
+      },
       barData: {},
       horizontalBarData: {},
       stepLineData: [],
@@ -46,10 +95,9 @@ export default {
   },
   methods: {
     toggleLine(id) {
-      this.lineData = this.lineData.map((el) => {
-        if (el.id === id) el.visible = !el.visible;
-        return el;
-      });
+      const lineToToggle = this.lineData.data.find((el) => el.id === id);
+      lineToToggle.visible = !lineToToggle.visible;
+      this.lineData = { ...this.lineData };
     },
     toggleLine2(id) {
       this.stepLineData = this.stepLineData.map((el) => {
@@ -58,38 +106,26 @@ export default {
       });
     },
     async loadData(num) {
-      const usage = {};
-      const bookings = {};
-      const maxUsage = {};
-      const maxBookings = {};
+      this.setLineData();
       const barData = {};
       const horizontalBarData = {};
       const usagePattern = {};
       const bookingPattern = {};
       if (num === 1) {
-        usage.values = await d3.csv('datasets/v1/usage.csv');
-        bookings.values = await d3.csv('datasets/v1/booking.csv');
-        maxUsage.values = await d3.csv('datasets/v1/maxUsage.csv');
-        maxBookings.values = await d3.csv('datasets/v1/maxBooking.csv');
-        barData.values = await d3.csv('datasets/v1/bookedAndUsed.csv');
-        horizontalBarData.values = await d3.csv('datasets/v1/roomData.csv');
-        usagePattern.values = await d3.csv('datasets/v1/usagePattern.csv');
-        bookingPattern.values = await d3.csv('datasets/v1/bookingPattern.csv');
+        barData.values = await d3.csv(
+          `datasets/v${this.datasetNumber}/bookedAndUsed.csv`
+        );
+        horizontalBarData.values = await d3.csv(
+          `datasets/v${this.datasetNumber}/roomData.csv`
+        );
+        usagePattern.values = await d3.csv(
+          `datasets/v${this.datasetNumber}/usagePattern.csv`
+        );
+        bookingPattern.values = await d3.csv(
+          `datasets/v${this.datasetNumber}/bookingPattern.csv`
+        );
       }
-      if (num === 2) {
-        usage.values = await d3.csv('datasets/v2/usage.csv');
-        bookings.values = await d3.csv('datasets/v2/booking.csv');
-        maxUsage.values = await d3.csv('datasets/v2/maxUsage.csv');
-        maxBookings.values = await d3.csv('datasets/v2/maxBooking.csv');
-        barData.values = await d3.csv('datasets/v2/bookedAndUsed.csv');
-        horizontalBarData.values = await d3.csv('datasets/v2/roomData.csv');
-        usagePattern.values = await d3.csv('datasets/v2/usagePattern.csv');
-        bookingPattern.values = await d3.csv('datasets/v2/bookingPattern.csv');
-      }
-      usage.color = '#D1A617';
-      maxUsage.color = '#D1A617';
-      bookings.color = '#5A657D';
-      maxBookings.color = '#5A657D';
+
       usagePattern.color = '#D1A617';
       bookingPattern.color = '#5A657D';
       usagePattern.name = 'Användning';
@@ -122,21 +158,6 @@ export default {
         usedAndBooked: 'Användning och bokning',
         notUsedNotBooked: 'Inte använd inte bokad',
       };
-      usage.name = 'Usage';
-      maxUsage.name = 'Max usage';
-      bookings.name = 'Bookings';
-      maxBookings.name = 'Max bookings';
-      usage.id = 0;
-      maxUsage.id = 1;
-      bookings.id = 2;
-      maxBookings.id = 3;
-      usage.visible = true;
-      maxUsage.visible = true;
-      bookings.visible = true;
-      maxBookings.visible = true;
-      maxUsage.dotted = true;
-      maxBookings.dotted = true;
-      this.lineData = [usage, bookings, maxUsage, maxBookings];
       barData.values.forEach((el) => {
         el.used = parseInt(el.used);
         el.booked = parseInt(el.booked);
@@ -152,6 +173,23 @@ export default {
       this.barData = barData;
       this.horizontalBarData = horizontalBarData;
       this.stepLineData = [usagePattern, bookingPattern];
+    },
+    async setLineData() {
+      const dataCopy = { ...this.lineData };
+      dataCopy.data[0].values = await d3.csv(
+        `datasets/v${this.datasetNumber}/usage.csv`
+      );
+      dataCopy.data[1].values = await d3.csv(
+        `datasets/v${this.datasetNumber}/booking.csv`
+      );
+      dataCopy.data[2].values = await d3.csv(
+        `datasets/v${this.datasetNumber}/maxUsage.csv`
+      );
+      dataCopy.data[3].values = await d3.csv(
+        `datasets/v${this.datasetNumber}/maxBooking.csv`
+      );
+      this.lineData = dataCopy;
+      this.lineData.resolution = 'DAY';
     },
   },
   async mounted() {
@@ -180,6 +218,8 @@ export default {
   flex-direction: column;
   flex-basis: 100%;
   flex: 1;
+  margin-left: 10px;
+  margin-right: 10px;
 }
 .btn {
   cursor: pointer;

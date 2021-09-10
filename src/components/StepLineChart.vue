@@ -12,23 +12,15 @@
         />
       </div>
     </div>
-    <svg height="100%" width="100%">
+    <svg :id="`svg_${id}`" height="100%">
       <g
-        id="ctr"
-        :transform="
-          `translate(${this.dimensions.margins}, ${this.dimensions.margins})`
-        "
+        :id="`ctrStepLineChart_${id}`"
+        :transform="`translate(${this.margins}, ${this.margins})`"
       >
         <g :id="`tooltipDotsStepLineChart_${id}`"></g>
         <g :id="`lineGroupStepLineChart_${id}`"></g>
         <g :id="`axisGroupYStepLineChart_${id}`"></g>
         <g :id="`axisGroupXStepLineChart_${id}`"></g>
-        <rect
-          :id="`tooltipBisectorStepLineChart_${id}`"
-          :width="ctrWidth"
-          :height="ctrHeight"
-          style="opacity: 0;"
-        ></rect>
       </g>
     </svg>
     <div class="tooltip" :id="`tooltipStepLineChart_${id}`">
@@ -54,21 +46,24 @@ export default {
   data() {
     return {
       tooltipPosition: { top: 10, right: 50 },
-      dimensions: { width: 600, height: 300, margins: 50, padding: 10 },
+      width: 600,
+      height: 300,
+      margins: 50,
+      padding: 10,
     };
   },
   computed: {
     ctrWidth() {
-      return this.dimensions.width - this.dimensions.margins * 2;
+      return this.width - this.margins * 2;
     },
     ctrHeight() {
-      return this.dimensions.height - this.dimensions.margins * 2;
+      return this.height - this.margins * 2;
     },
     xScale() {
       return d3
         .scaleLinear()
         .domain(d3.extent(this.mergedData, this.xAccessor))
-        .range([0, this.ctrWidth - this.dimensions.padding]);
+        .range([0, this.ctrWidth - this.padding]);
     },
     yScale() {
       return d3
@@ -134,7 +129,11 @@ export default {
     },
     drawTooltipBisector(that) {
       const tooltip = d3.select(`#tooltipStepLineChart_${this.id}`);
-      d3.select(`#tooltipBisectorStepLineChart_${this.id}`)
+      d3.select(`#ctrStepLineChart_${that.id}`)
+        .append('rect')
+        .attr('width', that.ctrWidth)
+        .attr('height', that.ctrHeight)
+        .style('opacity', 0)
         .on('touchmouse mousemove', function(event) {
           const mousePos = d3.pointer(event, this);
           const date = that.xScale.invert(mousePos[0]);
@@ -251,7 +250,16 @@ export default {
         .attr('stroke-width', 2)
         .style('opacity', (d) => (d.visible ? 1 : 0));
     },
+    setSvgWidth() {
+      const currentWidth = parseInt(
+        d3.select(`#${this.id}`).style('width'),
+        10
+      );
+      this.width = currentWidth;
+      d3.select(`#svg_${this.id}`).attr('width', currentWidth);
+    },
     draw() {
+      this.setSvgWidth();
       this.createToolTipDots();
       this.drawLine();
       this.drawAxis();
@@ -276,7 +284,7 @@ export default {
 }
 .chart {
   height: 300px;
-  width: 600px;
+  width: 100%;
   margin: 25px auto;
   position: relative;
   background-color: #efefef;
