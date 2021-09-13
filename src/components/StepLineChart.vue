@@ -1,30 +1,8 @@
 <template>
   <div class="chart" :id="id">
-    <div class="legend-container">
-      <div v-for="data in dataset" :key="data.id">
-        <label>{{ data.name }}</label>
-        <input
-          type="checkbox"
-          :id="data.id"
-          :name="data.name"
-          :checked="data.visible"
-          @change="$emit('toggle', data.id)"
-        />
-      </div>
-    </div>
-    <svg :id="`svg_${id}`" height="100%">
-      <g
-        :id="`ctrStepLineChart_${id}`"
-        :transform="`translate(${this.margins}, ${this.margins})`"
-      >
-        <g :id="`tooltipDotsStepLineChart_${id}`"></g>
-        <g :id="`lineGroupStepLineChart_${id}`"></g>
-        <g :id="`axisGroupYStepLineChart_${id}`"></g>
-        <g :id="`axisGroupXStepLineChart_${id}`"></g>
-      </g>
-    </svg>
-    <div class="tooltip" :id="`tooltipStepLineChart_${id}`">
-      <svg :id="`lineStepChartTooltip_${id}`" height="100%" width="100%"></svg>
+    <svg :id="`svg_${id}`"></svg>
+    <div class="tooltip-window" :id="`stepLineChartTooltipDiv_${id}`">
+      <svg :id="`stepLineChartTooltip_${id}`" height="100%" width="100%"></svg>
     </div>
   </div>
 </template>
@@ -35,7 +13,7 @@ export default {
   name: 'StepLineChart',
   props: {
     dataset: {
-      type: Array,
+      type: Object,
       required: false,
     },
     id: {
@@ -45,11 +23,12 @@ export default {
   },
   data() {
     return {
-      tooltipPosition: { top: 10, right: 50 },
-      width: 600,
-      height: 300,
-      margins: 50,
-      padding: 10,
+      tooltipPosition: { top: 10, right: 90 },
+      width: 0,
+      height: 0,
+      margins: 30,
+      xScalePadding: 10,
+      resizeListener: null,
     };
   },
   computed: {
@@ -63,20 +42,14 @@ export default {
       return d3
         .scaleLinear()
         .domain(d3.extent(this.mergedData, this.xAccessor))
-        .range([0, this.ctrWidth - this.padding]);
+        .range([0, this.ctrWidth - this.xScalePadding]);
     },
     yScale() {
       return d3
         .scaleLinear()
-        .domain(d3.extent(this.mergedData, this.yAccessor))
+        .domain([0, 100])
         .range([this.ctrHeight, 0])
         .nice();
-    },
-    lineGenerator() {
-      return d3
-        .line()
-        .x((d) => this.xScale(this.xAccessor(d)))
-        .y((d) => this.yScale(this.yAccessor(d)));
     },
     yAxis() {
       return d3
@@ -92,7 +65,7 @@ export default {
         .tickValues([0, 50, 100]);
     },
     mergedData() {
-      const mergedDataset = this.dataset.map((el) => el.values);
+      const mergedDataset = this.dataset.data.map((el) => el.values);
       return mergedDataset.flat();
     },
   },
@@ -104,6 +77,7 @@ export default {
       return parseInt(d.y);
     },
     drawAxis() {
+      if (!this.mergedData.length) return;
       const yAxis = d3
         .select(`#axisGroupYStepLineChart_${this.id}`)
         .call(this.yAxis)
@@ -128,55 +102,56 @@ export default {
         .attr('fill', '#6A6A6A');
     },
     drawTooltipBisector(that) {
-      const tooltip = d3.select(`#tooltipStepLineChart_${this.id}`);
-      d3.select(`#ctrStepLineChart_${that.id}`)
-        .append('rect')
-        .attr('width', that.ctrWidth)
-        .attr('height', that.ctrHeight)
-        .style('opacity', 0)
+      d3.select(`#tooltipBisectorStepLineChart_${this.id}`)
         .on('touchmouse mousemove', function(event) {
-          const mousePos = d3.pointer(event, this);
-          const date = that.xScale.invert(mousePos[0]);
-          // Custom Bisector - left, center, right
-          const bisector = d3.bisector(that.xAccessor).left;
-          const index = bisector(that.dataset[0].values, date);
-          const points = [];
-          that.dataset.forEach((el) => {
-            points.push({ ...el.values[index - 1], name: el.name });
-          });
-          if (points.findIndex((el) => el == null) !== -1) return;
-          // Update Image
-          d3.select(`#tooltipDotsStepLineChart_${that.id}`)
-            .selectAll('circle')
-            .data(points)
-            .style('opacity', 1)
-            .attr('cx', (d) => that.xScale(that.xAccessor(d)))
-            .attr('cy', (d) => that.yScale(that.yAccessor(d)))
-            .raise();
-          tooltip
-            .style('display', 'block')
-            .style('top', that.tooltipPosition.top + 'px')
-            .style('left', that.ctrWidth - that.tooltipPosition.right + 'px');
-
-          tooltip
-            .selectAll('text')
-            .data(points)
-            .text((d) => `${d.name}: ${d.y}%`);
-
-          tooltip.select('.date').text(Math.floor(date) + '%');
+          that.onHoverChart(event, this);
         })
-        // eslint-disable-next-line no-unused-vars
-        .on('mouseleave', function(event) {
-          d3.select(`#tooltipDotsStepLineChart_${that.id}`)
-            .selectAll('circle')
-            .style('opacity', 0);
-          tooltip.style('display', 'none');
+        .on('mouseleave', function() {
+          that.onHoverLeaveChart();
         });
     },
-    createToolTipDots() {
+    onHoverChart(event, rectObj) {
+      const tooltip = d3.select(`#stepLineChartTooltipDiv_${this.id}`);
+      const mousePos = d3.pointer(event, rectObj);
+      const date = this.xScale.invert(mousePos[0]);
+      // Custom Bisector - left, center, right
+      const bisector = d3.bisector(this.xAccessor).left;
+      const index = bisector(this.dataset.data[0].values, date);
+      const points = [];
+      this.dataset.data.forEach((el) => {
+        points.push({ ...el.values[index - 1], name: el.name });
+      });
+      if (points.findIndex((el) => el == null) !== -1) return;
+      // Update Image
       d3.select(`#tooltipDotsStepLineChart_${this.id}`)
         .selectAll('circle')
-        .data(this.dataset)
+        .data(points)
+        .style('opacity', 1)
+        .attr('cx', (d) => this.xScale(this.xAccessor(d)))
+        .attr('cy', (d) => this.yScale(this.yAccessor(d)))
+        .raise();
+      tooltip
+        .style('display', 'block')
+        .style('top', this.tooltipPosition.top + 'px')
+        .style('left', this.ctrWidth - this.tooltipPosition.right + 'px');
+      tooltip
+        .selectAll('text')
+        .data(points)
+        .text((d) => `${d.name}: ${Math.round(d.y)}%`);
+    },
+    onHoverLeaveChart() {
+      const tooltip = d3.select(`#stepLineChartTooltipDiv_${this.id}`);
+      d3.select(`#tooltipDotsStepLineChart_${this.id}`)
+        .selectAll('circle')
+        .style('opacity', 0);
+      tooltip.style('display', 'none');
+    },
+    createToolTipDots() {
+      const filtredData = this.dataset.data.filter((el) => el.values.length);
+      d3.select(`#tooltipDotsStepLineChart_${this.id}`)
+        .raise()
+        .selectAll('circle')
+        .data(filtredData)
         .join((enter) => enter.append('circle'))
         .attr('r', 5)
         .attr('fill', (d) => d.color)
@@ -184,31 +159,34 @@ export default {
         .attr('stroke-width', 2)
         .style('opacity', 0)
         .style('pointer-events', 'none');
-
-      d3.select(`#lineStepChartTooltip_${this.id}`)
+    },
+    createTooltipWindow() {
+      const filtredData = this.dataset.data.filter((el) => el.values.length);
+      const tooltipWindow = d3.select(`#stepLineChartTooltip_${this.id}`);
+      tooltipWindow
         .selectAll('line')
-        .data(this.dataset)
+        .data(filtredData)
         .join((enter) => enter.append('line'))
         .attr('x1', 0)
         .attr('x2', 25)
-        .attr('y1', (_d, i) => 10 + i * 20)
-        .attr('y2', (_d, i) => 10 + i * 20)
+        .attr('y1', (_d, i) => 5 + i * 12)
+        .attr('y2', (_d, i) => 5 + i * 12)
         .attr('stroke', (d) => d.color)
-        .attr('stroke-width', 5)
-        .attr('stroke-dasharray', (d) => (d.dotted ? '5,5' : null));
-      d3.select(`#lineStepChartTooltip_${this.id}`)
+        .attr('stroke-width', 4)
+        .attr('stroke-dasharray', (d) => (d.dashed ? '5,5' : null));
+      tooltipWindow
         .selectAll('text')
-        .data(this.dataset)
+        .data(filtredData)
         .join((enter) => enter.append('text'))
         .attr('x', 30)
-        .attr('y', (_d, i) => 13 + i * 20)
+        .attr('y', (_d, i) => 8 + i * 12)
         .text((d) => d.name)
-        .attr('fill', '#000')
+        .attr('fill', '#6A6A6A')
         .style('font-size', '10px');
     },
     drawLine() {
-      let usageLine, bookingLine;
-      this.dataset.forEach((data, index) => {
+      const lines = [];
+      this.dataset.data.forEach((data, index) => {
         let line = 'M';
         data.values.forEach((d, i) => {
           const y0 = this.yScale(this.yAccessor(d));
@@ -222,24 +200,16 @@ export default {
             line += `V${this.yScale(this.yAccessor(data.values[i + 1]))}`;
           }
         });
-        if (index === 0) usageLine = line;
-        else if (index === 1) bookingLine = line;
+        if (!data.values.length) return;
+        lines.push({
+          line,
+          color: this.dataset.data[index].color,
+          visible: this.dataset.data[index].visible,
+        });
       });
-      const data = [
-        {
-          line: usageLine,
-          color: this.dataset[0].color,
-          visible: this.dataset[0].visible,
-        },
-        {
-          line: bookingLine,
-          color: this.dataset[1].color,
-          visible: this.dataset[1].visible,
-        },
-      ];
       d3.select(`#lineGroupStepLineChart_${this.id}`)
         .selectAll('path')
-        .data(data)
+        .data(lines)
         .join((enter) => enter.append('path'))
         .transition()
         .duration(500)
@@ -250,54 +220,88 @@ export default {
         .attr('stroke-width', 2)
         .style('opacity', (d) => (d.visible ? 1 : 0));
     },
-    setSvgWidth() {
+    drawSvg() {
       const currentWidth = parseInt(
         d3.select(`#${this.id}`).style('width'),
         10
       );
+      const currentHeight = parseInt(
+        d3.select(`#${this.id}`).style('height'),
+        10
+      );
       this.width = currentWidth;
-      d3.select(`#svg_${this.id}`).attr('width', currentWidth);
+      this.height = currentHeight;
+      const svg = d3.select(`#svg_${this.id}`);
+      svg.attr('width', currentWidth);
+      svg.attr('height', currentHeight);
     },
-    draw() {
-      this.setSvgWidth();
-      this.createToolTipDots();
+    initSvg() {
+      this.drawSvg();
+      const svg = d3.select(`#svg_${this.id}`);
+      const ctr = svg
+        .append('g')
+        .attr('transform', `translate(${this.margins}, ${this.margins})`);
+      ctr.append('g').attr('id', `tooltipDotsStepLineChart_${this.id}`);
+      ctr.append('g').attr('id', `lineGroupStepLineChart_${this.id}`);
+      ctr.append('g').attr('id', `axisGroupYStepLineChart_${this.id}`);
+      ctr.append('g').attr('id', `axisGroupXStepLineChart_${this.id}`);
+      ctr
+        .append('rect')
+        .attr('width', this.ctrWidth)
+        .attr('height', this.ctrHeight)
+        .style('opacity', 0)
+        .attr('id', `tooltipBisectorStepLineChart_${this.id}`);
+    },
+    init() {
+      this.initSvg();
       this.drawLine();
       this.drawAxis();
+      this.createToolTipDots();
+      this.createTooltipWindow();
       this.drawTooltipBisector(this);
     },
+    draw() {
+      this.drawLine();
+      this.drawAxis();
+      this.createToolTipDots();
+      this.createTooltipWindow();
+    },
+  },
+  mounted() {
+    this.init();
+    this.resizeListener = () => {
+      this.drawSvg();
+      this.draw();
+    };
+    window.addEventListener('resize', this.resizeListener);
   },
   watch: {
-    dataset: {
-      deep: true,
-      handler() {
-        this.draw();
-      },
+    dataset() {
+      this.draw();
     },
+  },
+  destroyed() {
+    window.removeEventListener('resize', this.resizeListener);
   },
 };
 </script>
 
 <style scoped>
-.legend-container {
-  display: flex;
-  justify-content: space-around;
-}
 .chart {
-  height: 300px;
+  height: 100%;
   width: 100%;
-  margin: 25px auto;
   position: relative;
   background-color: #efefef;
 }
-.tooltip {
+.tooltip-window {
   border: 1px solid #ccc;
   position: absolute;
-  padding: 10px;
+  padding: 5px;
   background-color: #fff;
   display: none;
   pointer-events: none;
   border-radius: 10px;
-  width: 120px;
-  height: 40px;
+  width: 150px;
+  height: 65px;
 }
 </style>

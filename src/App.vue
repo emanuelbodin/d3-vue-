@@ -7,22 +7,18 @@
     <div class="row">
       <div class="col">
         <Legends :dataset="lineData" @toggle="toggleLine" />
-        <LineChart :id="'line1'" :dataset="lineData" />
+        <LineChart id="line1" :dataset="lineData" />
       </div>
       <div class="col">
-        <StepLineChart
-          :id="'step1'"
-          :dataset="stepLineData"
-          @toggle="toggleLine2"
-        />
+        <StepLineChart id="step1" :dataset="stepLineData" />
       </div>
     </div>
     <div class="row">
       <div class="col">
-        <BarChart :id="'bar1'" :dataset="barData" />
+        <BarChart id="bar1" :dataset="barData" />
       </div>
       <div class="col">
-        <HorizontalBarChart :id="'bar1'" :dataset="horizontalBarData" />
+        <HorizontalBarChart id="horizontalBar1" :dataset="horizontalBarData" />
       </div>
     </div>
   </div>
@@ -88,9 +84,28 @@ export default {
           },
         ],
       },
+      stepLineData: {
+        data: [
+          {
+            id: '1',
+            name: 'Användning',
+            values: [],
+            color: '#D1A617',
+            dashed: false,
+            visible: true,
+          },
+          {
+            id: '2',
+            name: 'Bokning',
+            values: [],
+            color: '#5A657D',
+            dashed: false,
+            visible: true,
+          },
+        ],
+      },
       barData: {},
       horizontalBarData: {},
-      stepLineData: [],
     };
   },
   methods: {
@@ -99,18 +114,10 @@ export default {
       lineToToggle.visible = !lineToToggle.visible;
       this.lineData = { ...this.lineData };
     },
-    toggleLine2(id) {
-      this.stepLineData = this.stepLineData.map((el) => {
-        if (el.id === id) el.visible = !el.visible;
-        return el;
-      });
-    },
     async loadData(num) {
-      this.setLineData();
-      const barData = {};
-      const horizontalBarData = {};
-      const usagePattern = {};
-      const bookingPattern = {};
+      this.setLineData(num);
+      this.setStepLineData(num);
+      /*
       if (num === 1) {
         barData.values = await d3.csv(
           `datasets/v${this.datasetNumber}/bookedAndUsed.csv`
@@ -118,22 +125,7 @@ export default {
         horizontalBarData.values = await d3.csv(
           `datasets/v${this.datasetNumber}/roomData.csv`
         );
-        usagePattern.values = await d3.csv(
-          `datasets/v${this.datasetNumber}/usagePattern.csv`
-        );
-        bookingPattern.values = await d3.csv(
-          `datasets/v${this.datasetNumber}/bookingPattern.csv`
-        );
       }
-
-      usagePattern.color = '#D1A617';
-      bookingPattern.color = '#5A657D';
-      usagePattern.name = 'Användning';
-      bookingPattern.name = 'Bokning';
-      usagePattern.visible = true;
-      bookingPattern.visible = true;
-      usagePattern.id = 'step1';
-      bookingPattern.id = 'step2';
       barData.colors = {
         used: '#D1A617',
         booked: '#5A657D',
@@ -172,24 +164,26 @@ export default {
       });
       this.barData = barData;
       this.horizontalBarData = horizontalBarData;
-      this.stepLineData = [usagePattern, bookingPattern];
+      */
     },
-    async setLineData() {
+    async setLineData(num) {
       const dataCopy = { ...this.lineData };
-      dataCopy.data[0].values = await d3.csv(
-        `datasets/v${this.datasetNumber}/usage.csv`
-      );
-      dataCopy.data[1].values = await d3.csv(
-        `datasets/v${this.datasetNumber}/booking.csv`
-      );
-      dataCopy.data[2].values = await d3.csv(
-        `datasets/v${this.datasetNumber}/maxUsage.csv`
-      );
-      dataCopy.data[3].values = await d3.csv(
-        `datasets/v${this.datasetNumber}/maxBooking.csv`
-      );
+      dataCopy.data[0].values = await d3.csv(`datasets/v${num}/usage.csv`);
+      dataCopy.data[1].values = await d3.csv(`datasets/v${num}/booking.csv`);
+      dataCopy.data[2].values = await d3.csv(`datasets/v${num}/maxUsage.csv`);
+      dataCopy.data[3].values = await d3.csv(`datasets/v${num}/maxBooking.csv`);
       this.lineData = dataCopy;
       this.lineData.resolution = 'DAY';
+    },
+    async setStepLineData(num) {
+      const dataCopy = { ...this.stepLineData };
+      dataCopy.data[0].values = await d3.csv(
+        `datasets/v${num}/usagePattern.csv`
+      );
+      dataCopy.data[1].values = await d3.csv(
+        `datasets/v${num}/bookingPattern.csv`
+      );
+      this.stepLineData = dataCopy;
     },
   },
   async mounted() {
