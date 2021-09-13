@@ -113,10 +113,10 @@ export default {
     onHoverChart(event, rectObj) {
       const tooltip = d3.select(`#stepLineChartTooltipDiv_${this.id}`);
       const mousePos = d3.pointer(event, rectObj);
-      const date = this.xScale.invert(mousePos[0]);
+      const xValue = this.xScale.invert(mousePos[0]);
       // Custom Bisector - left, center, right
       const bisector = d3.bisector(this.xAccessor).left;
-      const index = bisector(this.dataset.data[0].values, date);
+      const index = bisector(this.dataset.data[0].values, xValue);
       const points = [];
       this.dataset.data.forEach((el) => {
         points.push({ ...el.values[index - 1], name: el.name });
@@ -134,10 +134,15 @@ export default {
         .style('display', 'block')
         .style('top', this.tooltipPosition.top + 'px')
         .style('left', this.ctrWidth - this.tooltipPosition.right + 'px');
-      tooltip
+      d3.select(`#stepLineTooltipWindowYLabels_${this.id}`)
         .selectAll('text')
         .data(points)
         .text((d) => `${d.name}: ${Math.round(d.y)}%`);
+      d3.select(`#stepLineTooltipWindowXLabel_${this.id}`)
+        .selectAll('text')
+        .data([xValue])
+        .join((enter) => enter.append('text'))
+        .text(Math.round(xValue) + '%');
     },
     onHoverLeaveChart() {
       const tooltip = d3.select(`#stepLineChartTooltipDiv_${this.id}`);
@@ -161,9 +166,20 @@ export default {
         .style('pointer-events', 'none');
     },
     createTooltipWindow() {
-      const filtredData = this.dataset.data.filter((el) => el.values.length);
       const tooltipWindow = d3.select(`#stepLineChartTooltip_${this.id}`);
       tooltipWindow
+        .append('g')
+        .attr('id', `stepLineTooltipWindowYLabels_${this.id}`);
+      tooltipWindow
+        .append('g')
+        .attr('id', `stepLineTooltipWindowXLabel_${this.id}`);
+    },
+    updateTooltipWindow() {
+      const filtredData = this.dataset.data.filter((el) => el.values.length);
+      const tooltipWindowYlabels = d3.select(
+        `#stepLineTooltipWindowYLabels_${this.id}`
+      );
+      tooltipWindowYlabels
         .selectAll('line')
         .data(filtredData)
         .join((enter) => enter.append('line'))
@@ -174,7 +190,7 @@ export default {
         .attr('stroke', (d) => d.color)
         .attr('stroke-width', 4)
         .attr('stroke-dasharray', (d) => (d.dashed ? '5,5' : null));
-      tooltipWindow
+      tooltipWindowYlabels
         .selectAll('text')
         .data(filtredData)
         .join((enter) => enter.append('text'))
@@ -183,6 +199,19 @@ export default {
         .text((d) => d.name)
         .attr('fill', '#6A6A6A')
         .style('font-size', '10px');
+
+      const tooltipWindowXlabels = d3.select(
+        `#stepLineTooltipWindowXLabel_${this.id}`
+      );
+      tooltipWindowXlabels
+        .selectAll('text')
+        .data([1])
+        .join((enter) => enter.append('text'))
+        .attr('x', 50)
+        .attr('y', 8 + (filtredData.length + 1) * 12)
+        .text(100 + '%')
+        .attr('fill', '#6A6A6A')
+        .style('font-size', '14px');
     },
     drawLine() {
       const lines = [];
@@ -258,19 +287,23 @@ export default {
       this.drawAxis();
       this.createToolTipDots();
       this.createTooltipWindow();
+      this.updateTooltipWindow();
       this.drawTooltipBisector(this);
     },
     draw() {
       this.drawLine();
       this.drawAxis();
+      this.updateTooltipWindow();
       this.createToolTipDots();
-      this.createTooltipWindow();
     },
   },
   mounted() {
     this.init();
     this.resizeListener = () => {
       this.drawSvg();
+      d3.select(`#tooltipBisectorStepLineChart_${this.id}`)
+        .attr('width', this.ctrWidth)
+        .attr('height', this.ctrHeight);
       this.draw();
     };
     window.addEventListener('resize', this.resizeListener);

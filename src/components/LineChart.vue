@@ -38,6 +38,18 @@ export default {
     ctrHeight() {
       return this.height - this.margins * 2;
     },
+    timeFormat() {
+      if (this.dataset.resolution === 'HOUR') return '%H:%M';
+      else if (this.dataset.resolution === 'DAY') return '%a';
+      else if (this.dataset.resolution === 'WEEK') return 'V.%V';
+      else return '';
+    },
+    xAxisTickValues() {
+      const dates = this.dataset.data[0].values.map((el) => new Date(el.x));
+      if (this.dataset.resolution === 'HOUR') {
+        return dates.filter((el, i) => i % 2 === 0);
+      } else return dates;
+    },
     xScale() {
       return d3
         .scaleUtc()
@@ -65,23 +77,10 @@ export default {
         .tickValues([0, 50, 100]);
     },
     xAxis() {
-      const dates = this.dataset.data[0].values.map((el) => new Date(el.x));
-      let tickValues = [];
-      let timeFormat = '';
-      if (this.dataset.resolution === 'HOUR') {
-        tickValues = dates.filter((el, i) => i % 2 === 0);
-        timeFormat = '%H:%M';
-      } else if (this.dataset.resolution === 'DAY') {
-        tickValues = dates;
-        timeFormat = '%a';
-      } else if (this.dataset.resolution === 'WEEK') {
-        tickValues = dates;
-        timeFormat = 'V.%V';
-      }
       return d3
         .axisBottom(this.xScale)
-        .tickFormat(d3.timeFormat(timeFormat))
-        .tickValues(tickValues);
+        .tickFormat(d3.timeFormat(this.timeFormat))
+        .tickValues(this.xAxisTickValues);
     },
     mergedData() {
       const mergedDataset = this.dataset.data.map((el) => el.values);
@@ -132,10 +131,10 @@ export default {
     onHoverChart(event, rectObj) {
       const tooltip = d3.select(`#lineChartTooltipDiv_${this.id}`);
       const mousePos = d3.pointer(event, rectObj);
-      const date = this.xScale.invert(mousePos[0]);
+      const xValue = this.xScale.invert(mousePos[0]);
       // Custom Bisector - left, center, right
       const bisector = d3.bisector(this.xAccessor).left;
-      const index = bisector(this.dataset.data[0].values, date);
+      const index = bisector(this.dataset.data[0].values, xValue);
       const points = [];
       this.dataset.data.forEach((el) => {
         points.push({
@@ -156,10 +155,15 @@ export default {
         .style('display', 'block')
         .style('top', this.tooltipPosition.top + 'px')
         .style('left', this.ctrWidth - this.tooltipPosition.right + 'px');
-      tooltip
+      d3.select(`#lineTooltipWindowYLabels_${this.id}`)
         .selectAll('text')
         .data(points)
         .text((d) => `${d.name}: ${Math.round(d.y)}%`);
+      d3.select(`#lineTooltipWindowXLabel_${this.id}`)
+        .selectAll('text')
+        .data([xValue])
+        .join((enter) => enter.append('text'))
+        .text(d3.timeFormat(this.timeFormat, xValue));
     },
     onHoverLeaveChart() {
       const tooltip = d3.select(`#lineChartTooltipDiv_${this.id}`);
@@ -183,9 +187,20 @@ export default {
         .style('pointer-events', 'none');
     },
     createTooltipWindow() {
-      const filtredData = this.dataset.data.filter((el) => el.values.length);
       const tooltipWindow = d3.select(`#lineChartTooltip_${this.id}`);
       tooltipWindow
+        .append('g')
+        .attr('id', `lineTooltipWindowYLabels_${this.id}`);
+      tooltipWindow
+        .append('g')
+        .attr('id', `lineTooltipWindowXLabel_${this.id}`);
+    },
+    updateTooltipWindow() {
+      const filtredData = this.dataset.data.filter((el) => el.values.length);
+      const tooltipWindowYlabels = d3.select(
+        `#lineTooltipWindowYLabels_${this.id}`
+      );
+      tooltipWindowYlabels
         .selectAll('line')
         .data(filtredData)
         .join((enter) => enter.append('line'))
@@ -196,13 +211,26 @@ export default {
         .attr('stroke', (d) => d.color)
         .attr('stroke-width', 4)
         .attr('stroke-dasharray', (d) => (d.dashed ? '5,5' : null));
-      tooltipWindow
+      tooltipWindowYlabels
         .selectAll('text')
         .data(filtredData)
         .join((enter) => enter.append('text'))
         .attr('x', 30)
         .attr('y', (_d, i) => 8 + i * 12)
         .text((d) => d.name)
+        .attr('fill', '#6A6A6A')
+        .style('font-size', '10px');
+
+      const tooltipWindowXlabels = d3.select(
+        `#lineTooltipWindowXLabel_${this.id}`
+      );
+      tooltipWindowXlabels
+        .selectAll('text')
+        .data([1])
+        .join((enter) => enter.append('text'))
+        .attr('x', 20)
+        .attr('y', (filtredData.length + 1) * 12)
+        .text(100 + '%')
         .attr('fill', '#6A6A6A')
         .style('font-size', '10px');
     },
@@ -259,19 +287,25 @@ export default {
       this.drawAxis();
       this.createToolTipDot();
       this.createTooltipWindow();
+      this.updateTooltipWindow();
       this.drawTooltipBisector(this);
     },
     draw() {
       this.drawLine();
       this.drawAxis();
       this.createToolTipDot();
-      this.createTooltipWindow();
+      this.updateTooltipWindow();
     },
   },
   mounted() {
     this.init();
     this.resizeListener = () => {
       this.drawSvg();
+      this.drawSvg();
+      d3.select(`#tooltipBisectorLineChart_${this.id}`)
+        .attr('width', this.ctrWidth)
+        .attr('height', this.ctrHeight);
+      this.draw();
       this.draw();
     };
     window.addEventListener('resize', this.resizeListener);
