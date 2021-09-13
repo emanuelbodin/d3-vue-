@@ -159,11 +159,12 @@ export default {
         .selectAll('text')
         .data(points)
         .text((d) => `${d.name}: ${Math.round(d.y)}%`);
+      const formatTime = d3.timeFormat(this.timeFormat);
       d3.select(`#lineTooltipWindowXLabel_${this.id}`)
         .selectAll('text')
-        .data([xValue])
+        .data([points[0]])
         .join((enter) => enter.append('text'))
-        .text(d3.timeFormat(this.timeFormat, xValue));
+        .text((d) => formatTime(this.xAccessor(d)));
     },
     onHoverLeaveChart() {
       const tooltip = d3.select(`#lineChartTooltipDiv_${this.id}`);
@@ -172,7 +173,7 @@ export default {
         .style('opacity', 0);
       tooltip.style('display', 'none');
     },
-    createToolTipDot() {
+    createToolTipDots() {
       const filtredData = this.dataset.data.filter((el) => el.values.length);
       d3.select(`#tooltipDotsLineChart_${this.id}`)
         .raise()
@@ -285,7 +286,7 @@ export default {
       this.initSvg();
       this.drawLine();
       this.drawAxis();
-      this.createToolTipDot();
+      this.createToolTipDots();
       this.createTooltipWindow();
       this.updateTooltipWindow();
       this.drawTooltipBisector(this);
@@ -293,7 +294,7 @@ export default {
     draw() {
       this.drawLine();
       this.drawAxis();
-      this.createToolTipDot();
+      this.createToolTipDots();
       this.updateTooltipWindow();
     },
   },
@@ -301,11 +302,9 @@ export default {
     this.init();
     this.resizeListener = () => {
       this.drawSvg();
-      this.drawSvg();
       d3.select(`#tooltipBisectorLineChart_${this.id}`)
         .attr('width', this.ctrWidth)
         .attr('height', this.ctrHeight);
-      this.draw();
       this.draw();
     };
     window.addEventListener('resize', this.resizeListener);

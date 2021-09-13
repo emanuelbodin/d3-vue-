@@ -1,16 +1,6 @@
 <template>
-  <div v-if="dataset != null" class="chart">
-    <svg height="100%" width="100%">
-      <g
-        :transform="
-          `translate(${this.dimensions.margins}, ${this.dimensions.margins})`
-        "
-      >
-        <g :id="`axisGroupY_${id}`"></g>
-        <g :id="`barGroup_${id}`"></g>
-        <g :id="`axisGroupX_${id}`"></g>
-      </g>
-    </svg>
+  <div class="chart" :id="id">
+    <svg :id="`svg_${id}`"></svg>
     <div class="tooltip" :id="`barChartTooltipDiv_${id}`">
       <svg :id="`barChartTooltip_${id}`" height="100%" width="100%"></svg>
     </div>
@@ -33,18 +23,33 @@ export default {
   },
   data() {
     return {
-      dimensions: { width: 600, height: 300, margins: 50 },
+      tooltipPosition: { top: 10, right: 90 },
+      width: 0,
+      height: 0,
+      margins: 30,
+      xScalePadding: 10,
+      resizeListener: null,
     };
   },
   computed: {
     ctrWidth() {
-      return this.dimensions.width - this.dimensions.margins * 2;
+      return this.width - this.margins * 2;
     },
     ctrHeight() {
-      return this.dimensions.height - this.dimensions.margins * 2;
+      return this.height - this.margins * 2;
+    },
+    timeFormat() {
+      if (this.dataset.timeSetting === 'DAY') return '%H:%M';
+      else if (this.dataset.timeSetting === 'WEEK') return '%a';
+      else if (this.dataset.timeSetting === 'MONTH') return '%d/%m';
+      else if (this.dataset.timeSetting === 'YEAR') return 'V.%V';
+      else return '';
     },
     stackGenerator() {
-      return d3.stack().keys(this.dataset.values.columns.slice(1));
+      const columns = this.dataset.values.length
+        ? this.dataset.values.columns.slice(1)
+        : [];
+      return d3.stack().keys(columns);
     },
     stackData() {
       return this.stackGenerator(this.dataset.values).map((dataGroup) => {
@@ -81,21 +86,23 @@ export default {
         .tickValues([0, 50, 100]);
     },
     xAxis() {
-      return d3.axisBottom(this.xScale).tickFormat(d3.timeFormat('%a'));
+      return d3
+        .axisBottom(this.xScale)
+        .tickFormat(d3.timeFormat(this.timeFormat));
     },
   },
   methods: {
     xAccessor(d) {
-      const parseDate = d3.timeParse('%Y-%m-%d');
-      return parseDate(d.date);
+      const date = new Date(Date.parse(d.date));
+      return date;
     },
     yAccessor(d) {
       return parseInt(d.y);
     },
     drawAxis() {
+      if (!this.dataset.values.length) return;
       const yAxis = d3
-        .select(`#axisGroupY_${this.id}`)
-        .classed('axis', true)
+        .select(`#axisGroupYBarChart_${this.id}`)
         .call(this.yAxis)
         .call((g) => g.select('.domain').remove());
       yAxis
@@ -107,7 +114,7 @@ export default {
         .selectAll('text')
         .attr('fill', '#6A6A6A');
       const xAxis = d3
-        .select(`#axisGroupX_${this.id}`)
+        .select(`#axisGroupXBarChart_${this.id}`)
         .style('transform', `translateY(${this.ctrHeight}px`)
         .call(this.xAxis)
         .call((g) => g.select('.domain').remove())
@@ -120,7 +127,7 @@ export default {
     drawBars() {
       const that = this;
       const barGroups = d3
-        .select(`#barGroup_${this.id}`)
+        .select(`#barGroupBarChart_${this.id}`)
         .selectAll('g')
         .data(this.stackData)
         .join('g');
@@ -136,33 +143,44 @@ export default {
         .attr('rx', 1)
         .attr('ry', 1)
         .on('mouseover', function(event, d) {
-          const name = that.dataset.names[d.key];
-          const color = that.dataset.colors[d.key];
-          const value = d.data[d.key];
-          const tooltip = d3.select(`#barChartTooltipDiv_${that.id}`);
-          const mousePos = d3.pointer(event, this);
-          tooltip
-            .style('display', 'block')
-            .style('top', mousePos[1] + 15 + 'px')
-            .style('left', mousePos[0] + 25 + 'px');
-          tooltip.selectAll('circle').attr('fill', color);
-          tooltip.selectAll('#tooltipText').text(`${name}: ${value}%`);
-          d3.select(this).style('opacity', 0.7);
+          that.onHoverChart(event, this, d);
         })
         .on('mouseout', function() {
-          const tooltip = d3.select(`#barChartTooltipDiv_${that.id}`);
-          tooltip.style('display', 'none');
-          d3.select(this).style('opacity', 1);
+          that.onHoverLeaveChart(this);
         });
     },
-    drawToolTip() {
-      d3.select(`#barChartTooltip_${this.id}`)
+    onHoverChart(event, rectEl, d) {
+      const name = this.dataset.names[d.key];
+      const color = this.dataset.colors[d.key];
+      const value = d.data[d.key];
+      const tooltip = d3.select(`#barChartTooltipDiv_${this.id}`);
+      const mousePos = d3.pointer(event, rectEl);
+      tooltip
+        .style('display', 'block')
+        .style('top', mousePos[1] + 15 + 'px')
+        .style('left', mousePos[0] + 25 + 'px');
+      tooltip.selectAll('circle').attr('fill', color);
+      tooltip.selectAll('#tooltipText').text(`${name}: ${value}%`);
+      d3.select(rectEl).style('opacity', 0.7);
+    },
+    onHoverLeaveChart(rectEl) {
+      const tooltip = d3.select(`#barChartTooltipDiv_${this.id}`);
+      tooltip.style('display', 'none');
+      d3.select(rectEl).style('opacity', 1);
+    },
+    createTooltipWindow() {
+      const tooltipWindow = d3.select(`#barChartTooltip_${this.id}`);
+      tooltipWindow
+        .append('g')
+        .attr('id', `barTooltipWindowYLabels_${this.id}`)
         .append('circle')
         .attr('cx', 10)
         .attr('cy', 10)
         .attr('r', 6)
         .attr('fill', '#000');
-      d3.select(`#barChartTooltip_${this.id}`)
+      tooltipWindow
+        .append('g')
+        .attr('id', `barTooltipWindowXLabel_${this.id}`)
         .append('text')
         .attr('x', 20)
         .attr('y', 13)
@@ -170,18 +188,59 @@ export default {
         .attr('fill', '#000')
         .style('font-size', '10px');
     },
+    drawSvg() {
+      const currentWidth = parseInt(
+        d3.select(`#${this.id}`).style('width'),
+        10
+      );
+      const currentHeight = parseInt(
+        d3.select(`#${this.id}`).style('height'),
+        10
+      );
+      this.width = currentWidth;
+      this.height = currentHeight;
+      const svg = d3.select(`#svg_${this.id}`);
+      svg.attr('width', currentWidth);
+      svg.attr('height', currentHeight);
+    },
+    initSvg() {
+      this.drawSvg();
+      const svg = d3.select(`#svg_${this.id}`);
+      const ctr = svg
+        .append('g')
+        .attr('transform', `translate(${this.margins}, ${this.margins})`);
+      ctr.append('g').attr('id', `axisGroupYBarChart_${this.id}`);
+      ctr.append('g').attr('id', `axisGroupXBarChart_${this.id}`);
+      ctr.append('g').attr('id', `barGroupBarChart_${this.id}`);
+    },
+    init() {
+      this.initSvg();
+      this.drawBars();
+      this.drawAxis();
+      this.createTooltipWindow();
+    },
     draw() {
-      this.drawToolTip();
       this.drawBars();
       this.drawAxis();
     },
   },
+  mounted() {
+    this.init();
+    this.resizeListener = () => {
+      this.drawSvg();
+      d3.select(`#tooltipBisectorLineChart_${this.id}`)
+        .attr('width', this.ctrWidth)
+        .attr('height', this.ctrHeight);
+      this.draw();
+    };
+    window.addEventListener('resize', this.resizeListener);
+  },
   watch: {
-    dataset: {
-      deep: true,
-      handler() {
-        this.draw();
-      },
+    dataset() {
+      this.draw();
+    },
+    destroyed() {
+      window.removeEventListener('resize', this.resizeListener);
     },
   },
 };
@@ -189,9 +248,8 @@ export default {
 
 <style scoped>
 .chart {
-  height: 300px;
-  width: 600px;
-  margin: 25px auto;
+  height: 100%;
+  width: 100%;
   position: relative;
   background-color: #efefef;
 }

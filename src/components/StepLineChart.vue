@@ -140,9 +140,9 @@ export default {
         .text((d) => `${d.name}: ${Math.round(d.y)}%`);
       d3.select(`#stepLineTooltipWindowXLabel_${this.id}`)
         .selectAll('text')
-        .data([xValue])
+        .data([points[0]])
         .join((enter) => enter.append('text'))
-        .text(Math.round(xValue) + '%');
+        .text((d) => Math.round(this.xAccessor(d)) + '%');
     },
     onHoverLeaveChart() {
       const tooltip = d3.select(`#stepLineChartTooltipDiv_${this.id}`);

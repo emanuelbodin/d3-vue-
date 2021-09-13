@@ -1,24 +1,39 @@
 <template>
   <div class="container">
     <div class="row">
-      <button class="btn" @click="loadData(1)">Data 1</button>
-      <button class="btn" @click="loadData(2)">Data 2</button>
-    </div>
-    <div class="row">
       <div class="col">
-        <Legends :dataset="lineData" @toggle="toggleLine" />
-        <LineChart id="line1" :dataset="lineData" />
-      </div>
-      <div class="col">
-        <StepLineChart id="step1" :dataset="stepLineData" />
+        <div>
+          <button class="btn" @click="loadData(1)">Data 1</button>
+          <button class="btn" @click="loadData(2)">Data 2</button>
+        </div>
       </div>
     </div>
     <div class="row">
       <div class="col">
-        <BarChart id="bar1" :dataset="barData" />
+        <div class="card">
+          <Legends :dataset="lineData" @toggle="toggleLine" />
+          <LineChart id="line1" :dataset="lineData" />
+        </div>
       </div>
       <div class="col">
-        <HorizontalBarChart id="horizontalBar1" :dataset="horizontalBarData" />
+        <div class="card">
+          <StepLineChart id="step1" :dataset="stepLineData" />
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <BarChart id="bar1" :dataset="barData" />
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <HorizontalBarChart
+            id="horizontalBar1"
+            :dataset="horizontalBarData"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -104,7 +119,22 @@ export default {
           },
         ],
       },
-      barData: {},
+      barData: {
+        values: [],
+        timeSetting: 'WEEK',
+        colors: {
+          used: '#D1A617',
+          booked: '#5A657D',
+          usedAndBooked: '#A5965F',
+          notUsedNotBooked: '#B8B2B2',
+        },
+        names: {
+          used: 'Användning',
+          booked: 'Bokning',
+          usedAndBooked: 'Användning och bokning',
+          notUsedNotBooked: 'Inte använd inte bokad',
+        },
+      },
       horizontalBarData: {},
     };
   },
@@ -117,6 +147,7 @@ export default {
     async loadData(num) {
       this.setLineData(num);
       this.setStepLineData(num);
+      this.setBarData(num);
       /*
       if (num === 1) {
         barData.values = await d3.csv(
@@ -126,12 +157,7 @@ export default {
           `datasets/v${this.datasetNumber}/roomData.csv`
         );
       }
-      barData.colors = {
-        used: '#D1A617',
-        booked: '#5A657D',
-        usedAndBooked: '#A5965F',
-        notUsedNotBooked: '#B8B2B2',
-      };
+      
       horizontalBarData.names = {
         used: 'Användning',
         booked: 'Bokning',
@@ -144,25 +170,14 @@ export default {
         usedAndBooked: '#A5965F',
         notUsedNotBooked: '#B8B2B2',
       };
-      barData.names = {
-        used: 'Användning',
-        booked: 'Bokning',
-        usedAndBooked: 'Användning och bokning',
-        notUsedNotBooked: 'Inte använd inte bokad',
-      };
-      barData.values.forEach((el) => {
-        el.used = parseInt(el.used);
-        el.booked = parseInt(el.booked);
-        el.usedAndBooked = parseInt(el.usedAndBooked);
-        el.notUsedNotBooked = parseInt(el.notUsedNotBooked);
-      });
+    
+      
       horizontalBarData.values.forEach((el) => {
         el.used = parseInt(el.used);
         el.booked = parseInt(el.booked);
         el.usedAndBooked = parseInt(el.usedAndBooked);
         el.notUsedNotBooked = parseInt(el.notUsedNotBooked);
       });
-      this.barData = barData;
       this.horizontalBarData = horizontalBarData;
       */
     },
@@ -185,6 +200,11 @@ export default {
       );
       this.stepLineData = dataCopy;
     },
+    async setBarData(num) {
+      const dataCopy = { ...this.barData };
+      dataCopy.values = await d3.csv(`datasets/v${num}/bookedAndUsed.csv`);
+      this.barData = dataCopy;
+    },
   },
   async mounted() {
     this.loadData(1);
@@ -206,14 +226,23 @@ export default {
   flex-wrap: wrap;
   width: 100%;
   justify-content: center;
+  margin-bottom: 20px;
 }
 .col {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   flex-basis: 100%;
   flex: 1;
   margin-left: 10px;
   margin-right: 10px;
+}
+
+.card {
+  height: 300px;
+  width: 75%;
+  padding: 10px;
 }
 .btn {
   cursor: pointer;
