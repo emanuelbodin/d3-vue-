@@ -1,22 +1,9 @@
 <template>
-  <div v-if="dataset != null" class="chart">
-    <svg :height="50" :width="dimensions.width">
-      <g
-        :id="`horizontalBarAxisGroupX_${id}`"
-        :transform="`translate(${this.dimensions.margins}, ${30})`"
-      ></g>
-    </svg>
-    <div class="scroll-container">
-      <svg :height="svgHeight" width="100%" reserveAspectRatio="none">
-        <g :transform="`translate(${this.dimensions.margins}, 20)`">
-          <g id="barLabels"></g>
-
-          <g :id="`horizontalBarGroup_${id}`"></g>
-          <g :id="`horizontalBarAxisGroupY_${id}`"></g>
-        </g>
-      </svg>
+  <div class="chart" :id="id">
+    <svg :id="`xAxisSvg_${id}`"></svg>
+    <div :id="`horizontalBarScrollContainer_${id}`" class="scroll-container">
+      <svg :id="`svg_${id}`"></svg>
     </div>
-
     <div class="tooltip" :id="`horizontalBarChartTooltipDiv_${id}`">
       <svg
         :id="`horizontalBarChartTooltip_${id}`"
@@ -43,24 +30,32 @@ export default {
   },
   data() {
     return {
-      dimensions: { width: 600, height: 300, margins: 50 },
+      tooltipPosition: { top: 10, right: 90 },
+      xAxisSvgHeight: 50,
+      width: 0,
+      height: 0,
+      margins: 30,
+      resizeListener: null,
       dominantBaseline: 'text-bottom',
       textOffset: 10,
     };
   },
   computed: {
     svgHeight() {
-      if (this.dataset.values == null) return 0;
+      if (!this.dataset.values.length) return 0;
       return this.dataset.values.length * 40 + 100;
     },
     ctrWidth() {
-      return this.dimensions.width - this.dimensions.margins * 2;
+      return this.width - this.margins * 2;
     },
     ctrHeight() {
-      return this.svgHeight - this.dimensions.margins * 2;
+      return this.svgHeight - this.margins * 2;
     },
     stackGenerator() {
-      return d3.stack().keys(this.dataset.values.columns.slice(1));
+      const columns = this.dataset.values.length
+        ? this.dataset.values.columns.slice(1)
+        : [];
+      return d3.stack().keys(columns);
     },
     stackData() {
       return this.stackGenerator(this.dataset.values).map((dataGroup) => {
@@ -106,6 +101,7 @@ export default {
       return parseInt(d.y);
     },
     drawAxis() {
+      if (!this.dataset.values.length) return;
       d3.select(`#horizontalBarAxisGroupX_${this.id}`)
         .style('position', 'fixed')
         .call(this.xAxis)
@@ -138,25 +134,33 @@ export default {
         .attr('rx', 1)
         .attr('ry', 1)
         .on('mouseover', function(event, d) {
-          const name = that.dataset.names[d.key];
-          const color = that.dataset.colors[d.key];
-          const value = d.data[d.key];
-          const tooltip = d3.select(`#horizontalBarChartTooltipDiv_${that.id}`);
-          //const mousePos = d3.pointer(event, this);
-          tooltip
-            .style('display', 'block')
-            .style('top', 0 + 'px')
-            .style('left', that.ctrWidth - 100 + 'px');
-          tooltip.selectAll('circle').attr('fill', color);
-          tooltip.selectAll('#tooltipText').text(`${name}: ${value}%`);
-          d3.select(this).style('opacity', 0.7);
+          that.onHoverChart(d, this);
         })
         .on('mouseout', function() {
-          const tooltip = d3.select(`#horizontalBarChartTooltipDiv_${that.id}`);
-          tooltip.style('display', 'none');
-          d3.select(this).style('opacity', 1);
+          that.onHoverLeaveChart();
         });
-      d3.select('#barLabels')
+    },
+    onHoverChart(d, rectObj) {
+      const name = this.dataset.names[d.key];
+      const color = this.dataset.colors[d.key];
+      const value = d.data[d.key];
+      const tooltip = d3.select(`#horizontalBarChartTooltipDiv_${this.id}`);
+      //const mousePos = d3.pointer(event, this);
+      tooltip
+        .style('display', 'block')
+        .style('top', 0 + 'px')
+        .style('left', this.ctrWidth - 100 + 'px');
+      tooltip.selectAll('circle').attr('fill', color);
+      tooltip.selectAll('#tooltipText').text(`${name}: ${value}%`);
+      d3.select(rectObj).style('opacity', 0.7);
+    },
+    onHoverLeaveChart(rectObj) {
+      const tooltip = d3.select(`#horizontalBarChartTooltipDiv_${this.id}`);
+      tooltip.style('display', 'none');
+      d3.select(rectObj).style('opacity', 1);
+    },
+    drawBarLabels() {
+      d3.select(`#horizontalBarLabels_${this.id}`)
         .selectAll('text')
         .data(this.dataset.values)
         .join((enter) => enter.append('text'))
@@ -171,14 +175,19 @@ export default {
         .style('font-size', '12px')
         .text((d) => d.room);
     },
-    drawToolTip() {
-      d3.select(`#horizontalBarChartTooltip_${this.id}`)
+    createTooltipWindow() {
+      const tooltipWindow = d3.select(`#horizontalBarChartTooltip_${this.id}`);
+      tooltipWindow
+        .append('g')
+        .attr('id', `horizontalBarTooltipWindowYLabels_${this.id}`)
         .append('circle')
         .attr('cx', 10)
         .attr('cy', 10)
         .attr('r', 6)
         .attr('fill', '#000');
-      d3.select(`#horizontalBarChartTooltip_${this.id}`)
+      tooltipWindow
+        .append('g')
+        .attr('id', `horizontalBarTooltipWindowXLabel_${this.id}`)
         .append('text')
         .attr('x', 20)
         .attr('y', 13)
@@ -186,28 +195,70 @@ export default {
         .attr('fill', '#000')
         .style('font-size', '10px');
     },
-    draw() {
-      this.drawToolTip();
+    drawSvg() {
+      const currentWidth = parseInt(
+        d3.select(`#horizontalBarScrollContainer_${this.id}`).style('width'),
+        10
+      );
+      this.width = currentWidth;
+      const xAxisSvg = d3.select(`#xAxisSvg_${this.id}`);
+      const barSvg = d3.select(`#svg_${this.id}`);
+      xAxisSvg.attr('width', currentWidth);
+      xAxisSvg.attr('height', this.xAxisSvgHeight);
+      barSvg.attr('width', currentWidth);
+      barSvg.attr('height', this.svgHeight);
+    },
+    initSvg() {
+      this.drawSvg();
+      const barSvg = d3.select(`#svg_${this.id}`);
+      const xAxisSvg = d3.select(`#xAxisSvg_${this.id}`);
+      xAxisSvg
+        .append('g')
+        .attr('transform', `translate(${this.margins}, ${this.margins})`)
+        .attr('id', `horizontalBarAxisGroupX_${this.id}`);
+      const ctr = barSvg
+        .append('g')
+        .attr('transform', `translate(${this.margins}, ${this.margins})`);
+      ctr.append('g').attr('id', `horizontalBarLabels_${this.id}`);
+      ctr.append('g').attr('id', `horizontalBarGroup_${this.id}`);
+      ctr.append('g').attr('id', `horizontalBarAxisGroupY_${this.id}`);
+    },
+    init() {
+      this.initSvg();
       this.drawBars();
+      this.drawBarLabels();
+      this.drawAxis();
+      this.createTooltipWindow();
+    },
+    draw() {
+      this.drawSvg();
+      this.drawBars();
+      this.drawBarLabels();
       this.drawAxis();
     },
   },
+  mounted() {
+    this.init();
+    this.resizeListener = () => {
+      this.draw();
+    };
+    window.addEventListener('resize', this.resizeListener);
+  },
   watch: {
-    dataset: {
-      deep: true,
-      handler() {
-        this.draw();
-      },
+    dataset() {
+      this.draw();
     },
+  },
+  destroyed() {
+    window.removeEventListener('resize', this.resizeListener);
   },
 };
 </script>
 
 <style scoped>
 .chart {
-  height: 300px;
-  width: 600px;
-  margin: 25px auto;
+  height: 100%;
+  width: 100%;
   position: relative;
   background-color: #efefef;
 }
@@ -225,8 +276,5 @@ export default {
   display: none;
   pointer-events: none;
   border-radius: 10px;
-}
-.bar-label {
-  color: '#6A6A6A';
 }
 </style>

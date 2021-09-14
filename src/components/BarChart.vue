@@ -149,25 +149,7 @@ export default {
           that.onHoverLeaveChart(this);
         });
     },
-    onHoverChart(event, rectEl, d) {
-      const name = this.dataset.names[d.key];
-      const color = this.dataset.colors[d.key];
-      const value = d.data[d.key];
-      const tooltip = d3.select(`#barChartTooltipDiv_${this.id}`);
-      const mousePos = d3.pointer(event, rectEl);
-      tooltip
-        .style('display', 'block')
-        .style('top', mousePos[1] + 15 + 'px')
-        .style('left', mousePos[0] + 25 + 'px');
-      tooltip.selectAll('circle').attr('fill', color);
-      tooltip.selectAll('#tooltipText').text(`${name}: ${value}%`);
-      d3.select(rectEl).style('opacity', 0.7);
-    },
-    onHoverLeaveChart(rectEl) {
-      const tooltip = d3.select(`#barChartTooltipDiv_${this.id}`);
-      tooltip.style('display', 'none');
-      d3.select(rectEl).style('opacity', 1);
-    },
+
     createTooltipWindow() {
       const tooltipWindow = d3.select(`#barChartTooltip_${this.id}`);
       tooltipWindow
@@ -228,9 +210,6 @@ export default {
     this.init();
     this.resizeListener = () => {
       this.drawSvg();
-      d3.select(`#tooltipBisectorLineChart_${this.id}`)
-        .attr('width', this.ctrWidth)
-        .attr('height', this.ctrHeight);
       this.draw();
     };
     window.addEventListener('resize', this.resizeListener);

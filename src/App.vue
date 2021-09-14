@@ -57,7 +57,6 @@ export default {
   },
   data() {
     return {
-      datasetNumber: 1,
       lineData: {
         resolution: 'DAY',
         data: [
@@ -135,7 +134,22 @@ export default {
           notUsedNotBooked: 'Inte använd inte bokad',
         },
       },
-      horizontalBarData: {},
+      horizontalBarData: {
+        values: [],
+        timeSetting: 'WEEK',
+        colors: {
+          used: '#D1A617',
+          booked: '#5A657D',
+          usedAndBooked: '#A5965F',
+          notUsedNotBooked: '#B8B2B2',
+        },
+        names: {
+          used: 'Användning',
+          booked: 'Bokning',
+          usedAndBooked: 'Användning och bokning',
+          notUsedNotBooked: 'Inte använd inte bokad',
+        },
+      },
     };
   },
   methods: {
@@ -148,38 +162,7 @@ export default {
       this.setLineData(num);
       this.setStepLineData(num);
       this.setBarData(num);
-      /*
-      if (num === 1) {
-        barData.values = await d3.csv(
-          `datasets/v${this.datasetNumber}/bookedAndUsed.csv`
-        );
-        horizontalBarData.values = await d3.csv(
-          `datasets/v${this.datasetNumber}/roomData.csv`
-        );
-      }
-      
-      horizontalBarData.names = {
-        used: 'Användning',
-        booked: 'Bokning',
-        usedAndBooked: 'Användning och bokning',
-        notUsedNotBooked: 'Inte använd inte bokad',
-      };
-      horizontalBarData.colors = {
-        used: '#D1A617',
-        booked: '#5A657D',
-        usedAndBooked: '#A5965F',
-        notUsedNotBooked: '#B8B2B2',
-      };
-    
-      
-      horizontalBarData.values.forEach((el) => {
-        el.used = parseInt(el.used);
-        el.booked = parseInt(el.booked);
-        el.usedAndBooked = parseInt(el.usedAndBooked);
-        el.notUsedNotBooked = parseInt(el.notUsedNotBooked);
-      });
-      this.horizontalBarData = horizontalBarData;
-      */
+      this.setHorizontalBarData(num);
     },
     async setLineData(num) {
       const dataCopy = { ...this.lineData };
@@ -204,6 +187,11 @@ export default {
       const dataCopy = { ...this.barData };
       dataCopy.values = await d3.csv(`datasets/v${num}/bookedAndUsed.csv`);
       this.barData = dataCopy;
+    },
+    async setHorizontalBarData(num) {
+      const dataCopy = { ...this.horizontalBarData };
+      dataCopy.values = await d3.csv(`datasets/v${num}/roomData.csv`);
+      this.horizontalBarData = dataCopy;
     },
   },
   async mounted() {
@@ -238,7 +226,6 @@ export default {
   margin-left: 10px;
   margin-right: 10px;
 }
-
 .card {
   height: 300px;
   width: 75%;
